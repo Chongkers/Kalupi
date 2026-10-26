@@ -85,9 +85,16 @@ export async function completeSetup(input: SetupInput): Promise<Result> {
   // Budget template (month = null), copied into each new month
   const template = await templateBudget();
   const templateRow: BudgetRow = { ...(template ?? newBudget(user, null)), total_limit: total > 0 ? total : null };
-  if (!template || total > 0) changes.push({ table: "budgets", row: templateRow });
-  // A total budget has no category limits
-  if (total === 0) changes.push(...(await limitChanges(templateRow.id, limits as { categoryId: string; amount: number }[])));
+  if (!template || template.total_limit !== templateRow.total_limit) changes.push({ table: "budgets", row: templateRow });
+  if (total > 0) {
+    // A total budget has no category limits, so drop any the template already had
+    const items = await db.budget_items.where("budget_id").equals(templateRow.id).toArray();
+    for (const item of items.filter((i) => !i.deleted_at)) {
+      changes.push({ table: "budget_items", row: { ...item, deleted_at: nowIso() } });
+    }
+  } else {
+    changes.push(...(await limitChanges(templateRow.id, limits as { categoryId: string; amount: number }[])));
+  }
 
   // Accounts, and their starting balances as "Opening balance" income (docs/erd.md, Rules)
   const opening = await openingBalanceCategory(user, changes);

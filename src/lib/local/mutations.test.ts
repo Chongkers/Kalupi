@@ -293,6 +293,22 @@ describe("completeSetup (v1.0.1 budget choice)", () => {
     expect((await liveItems(template.id)).map((i) => i.limit_amount)).toEqual([500000]);
   });
 
+  it("switching to a total drops the template's category limits", async () => {
+    await completeSetup({ accounts, limits: [{ categoryId: "food", amount: "5000" }], totalLimit: "" });
+    await completeSetup({ accounts: [{ ...accounts[0], name: "Cash" }], limits: [], totalLimit: "20000" });
+    const [template] = await db.budgets.toArray();
+    expect(template.total_limit).toBe(2000000);
+    expect(await liveItems(template.id)).toEqual([]);
+  });
+
+  it("switching to category limits clears the template's total", async () => {
+    await completeSetup({ accounts, limits: [], totalLimit: "20000" });
+    await completeSetup({ accounts: [{ ...accounts[0], name: "Cash" }], limits: [{ categoryId: "food", amount: "5000" }], totalLimit: "" });
+    const [template] = await db.budgets.toArray();
+    expect(template.total_limit).toBeNull();
+    expect((await liveItems(template.id)).map((i) => i.limit_amount)).toEqual([500000]);
+  });
+
   it("rejects a bad total", async () => {
     expect((await completeSetup({ accounts, limits: [], totalLimit: "lots" })).error).toMatch(/monthly budget/);
   });
