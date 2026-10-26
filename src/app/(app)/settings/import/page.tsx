@@ -49,7 +49,7 @@ function Preview({ plan, fileName, onDone }: { plan: ImportPlan; fileName: strin
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Accounts</CardTitle>
-            <CardDescription>Balances will match Tarsi.</CardDescription>
+            <CardDescription>Balances will match the file.</CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="divide-y">
@@ -137,7 +137,7 @@ function Preview({ plan, fileName, onDone }: { plan: ImportPlan; fileName: strin
                 <AlertDialogTitle>Replace your data?</AlertDialogTitle>
                 <AlertDialogDescription>
                   This removes your {removing} on every device, then adds {plural(plan.accounts.length, "account")} and{" "}
-                  {plural(plan.entries.length, "entry", "entries")} from Tarsi. Your categories, budgets, presets
+                  {plural(plan.entries.length, "entry", "entries")} from the file. Your categories, budgets, presets
                   and trackers stay. It can&apos;t be undone.
                 </AlertDialogDescription>
               </AlertDialogHeader>
@@ -149,7 +149,7 @@ function Preview({ plan, fileName, onDone }: { plan: ImportPlan; fileName: strin
                     startTransition(async () => {
                       const result = await importTarsi(plan);
                       if (result.error) return void toast.error(result.error);
-                      toast.success(`Imported ${plural(result.added ?? 0, "entry", "entries")} from Tarsi`);
+                      toast.success(`Imported ${plural(result.added ?? 0, "entry", "entries")}`);
                       onDone();
                     })
                   }
@@ -186,7 +186,7 @@ export default function ImportPage() {
 
   return (
     <>
-      <PageHeader title="Import" description="Bring your history over from Tarsi">
+      <PageHeader title="Import from CSV" description="Bring your history over from a CSV backup">
         <input
           ref={input}
           type="file"
@@ -199,7 +199,7 @@ export default function ImportPage() {
           }}
         />
         <Button size="lg" variant={loaded ? "outline" : "default"} onClick={() => input.current?.click()}>
-          <FileUp /> {loaded ? "Pick another file" : "Pick Tarsi backup"}
+          <FileUp /> {loaded ? "Pick another file" : "Pick CSV file"}
         </Button>
       </PageHeader>
 
@@ -215,7 +215,7 @@ export default function ImportPage() {
         <Card className="max-w-xl">
           <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
             <p>
-              In Tarsi, export a backup as a <span className="font-medium text-foreground">.csv</span> file, then pick it here.
+              Pick a <span className="font-medium text-foreground">.csv</span> backup. It works with backups exported from Tarsi.
               You&apos;ll see what&apos;s in it before anything changes.
             </p>
             <p>Accounts, income and expenses come over. The file is read on this device and isn&apos;t uploaded.</p>

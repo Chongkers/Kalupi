@@ -138,7 +138,9 @@ export function FlowStat({
       </span>
       <DailyBars days={days} today={day} direction={direction} />
       {/* Phones skip the footer to keep the dashboard on one screen */}
-      <div className="hidden text-sm text-muted-foreground md:block">{footer}</div>
+      <div className="hidden text-sm text-muted-foreground md:block">
+        {footer}
+      </div>
     </div>
   );
 }
@@ -204,8 +206,11 @@ export function BudgetDial({
         };
   const StatusIcon = status.icon;
 
-  const tickInner = pointOnArc(pace / 100, RADIUS - 8);
-  const tickOuter = pointOnArc(pace / 100, RADIUS + 8);
+  // The pace tick crosses only the ring's band, so it never runs into the number in the middle
+  const tickInner = pointOnArc(pace / 100, RADIUS - 5);
+  const tickOuter = pointOnArc(pace / 100, RADIUS + 5);
+  // Three digits ("127%") need a smaller size to fit inside the ring
+  const percentText = `${Math.min(budget.percentUsed, 999)}%`;
 
   return (
     <div className="flex h-full flex-col gap-3">
@@ -240,21 +245,31 @@ export function BudgetDial({
                 />
               )}
             </g>
-            <line
-              x1={tickInner.x}
-              y1={tickInner.y}
-              x2={tickOuter.x}
-              y2={tickOuter.y}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              className="stroke-foreground/70"
-            >
-              <title>Even pace for today: {Math.round(pace)}%</title>
-            </line>
+            {/* Pace doesn't matter once the month's limit is gone */}
+            {!over && (
+              <line
+                x1={tickInner.x}
+                y1={tickInner.y}
+                x2={tickOuter.x}
+                y2={tickOuter.y}
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                className="stroke-foreground/70"
+              >
+                <title>Even pace for today: {Math.round(pace)}%</title>
+              </line>
+            )}
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
-            <span className="text-2xl font-bold tabular-nums md:text-3xl">
-              {budget.percentUsed}%
+            <span
+              className={cn(
+                "font-bold tabular-nums",
+                percentText.length > 3
+                  ? "text-lg md:text-2xl"
+                  : "text-2xl md:text-3xl",
+              )}
+            >
+              {percentText}
             </span>
             <span className="-mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">
               used
@@ -263,26 +278,26 @@ export function BudgetDial({
         </div>
 
         <div className="flex min-w-0 flex-col gap-1.5">
-          <span className={cn(pill, "self-start", status.className)}>
+          <span
+            className={cn(
+              pill,
+              "self-start whitespace-nowrap",
+              status.className,
+            )}
+          >
             <StatusIcon className="size-3.5" />
             {status.label}
           </span>
-          <span className="text-sm font-medium tabular-nums">
-            {formatPeso(budget.totalSpent, { whole: true })}
-            <span className="text-muted-foreground">
-              {" "}
-              of {formatPeso(budget.totalLimit, { whole: true })}
+          <span className="flex flex-col leading-tight tabular-nums">
+            <span
+              className={cn("text-base font-semibold", over && "text-expense")}
+            >
+              {formatPeso(budget.totalSpent, { whole: true })}
             </span>
-          </span>
-          <span
-            className={cn(
-              "text-xs",
-              over ? "font-medium text-expense" : "text-muted-foreground",
-            )}
-          >
-            {over
-              ? "Over the monthly limit"
-              : `${daysLeft} ${daysLeft === 1 ? "day" : "days"} left`}
+            <span className="text-xs text-muted-foreground">
+              of {formatPeso(budget.totalLimit, { whole: true })} · {daysLeft}{" "}
+              {daysLeft === 1 ? "day" : "days"} left
+            </span>
           </span>
         </div>
       </div>

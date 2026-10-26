@@ -74,7 +74,7 @@ export default function SettingsPage() {
               </Button>
               <Button asChild variant="outline" size="lg" className="h-11 justify-between">
                 <Link href="/settings/import">
-                  Import from Tarsi <ChevronRight />
+                  Import from CSV <ChevronRight />
                 </Link>
               </Button>
             </CardContent>
