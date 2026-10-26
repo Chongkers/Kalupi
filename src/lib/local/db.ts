@@ -21,6 +21,9 @@ export type CategoryRow = Synced & {
   name: string;
   kind: CategoryKind;
   archived_at: string | null;
+  /** Icon and color keys (src/lib/finance/category-style.ts); missing = picked from the name */
+  icon?: string | null;
+  color?: string | null;
 };
 
 export type BudgetRow = Synced & {

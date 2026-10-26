@@ -18,6 +18,8 @@ export type Category = {
   name: string;
   kind: CategoryKind;
   archived_at: string | null;
+  icon?: string | null;
+  color?: string | null;
 };
 
 export type Transaction = {

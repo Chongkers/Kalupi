@@ -4,6 +4,7 @@ import "fake-indexeddb/auto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearLocalData, db, setMeta, type CategoryRow, type SyncedTable } from "./db";
 import {
+  completeSetup,
   ensureMonthBudget,
   leaveTracker,
   logPreset,
@@ -13,6 +14,7 @@ import {
   saveTracker,
   saveTrackerEntry,
   saveTransaction,
+  setCategoryStyle,
   setPresetArchived,
 } from "./mutations";
 
@@ -271,5 +273,44 @@ describe("presets", () => {
     const base = { name: "X", amount: "1", accountId: "" };
     expect((await savePreset({ ...base, type: "expense", categoryId: "", trackerId: "" })).error).toMatch(/category/);
     expect((await savePreset({ ...base, type: "contribution", categoryId: "", trackerId: "" })).error).toMatch(/tracker/);
+  });
+});
+
+describe("completeSetup (v1.0.1 budget choice)", () => {
+  const accounts = [{ name: "GCash", kind: "ewallet" as const, balance: "1000" }];
+
+  it("saves one total budget with no category limits", async () => {
+    expect(await completeSetup({ accounts, limits: [{ categoryId: "food", amount: "5000" }], totalLimit: "20000" })).toEqual({});
+    const [template] = await db.budgets.toArray();
+    expect(template).toMatchObject({ month: null, total_limit: 2000000 });
+    expect(await liveItems(template.id)).toEqual([]);
+  });
+
+  it("saves per-category limits when no total is given", async () => {
+    await completeSetup({ accounts, limits: [{ categoryId: "food", amount: "5000" }], totalLimit: "" });
+    const [template] = await db.budgets.toArray();
+    expect(template.total_limit).toBeNull();
+    expect((await liveItems(template.id)).map((i) => i.limit_amount)).toEqual([500000]);
+  });
+
+  it("rejects a bad total", async () => {
+    expect((await completeSetup({ accounts, limits: [], totalLimit: "lots" })).error).toMatch(/monthly budget/);
+  });
+});
+
+describe("setCategoryStyle", () => {
+  it("saves a picked icon and color, and clears them back to automatic", async () => {
+    expect(await setCategoryStyle("food", "coffee", "aqua")).toEqual({});
+    expect(await db.categories.get("food")).toMatchObject({ icon: "coffee", color: "aqua" });
+    expect(await queued()).toEqual(["categories"]);
+
+    await setCategoryStyle("food", null, null);
+    expect(await db.categories.get("food")).toMatchObject({ icon: null, color: null });
+  });
+
+  it("refuses icons and colors that don't exist", async () => {
+    expect((await setCategoryStyle("food", "rocket", null)).error).toMatch(/icons/);
+    expect((await setCategoryStyle("food", null, "teal")).error).toMatch(/colors/);
+    expect(await db.outbox.count()).toBe(0);
   });
 });

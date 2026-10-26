@@ -67,8 +67,9 @@ export function useLocalProfile() {
   return useLiveQuery(async () => {
     const owner = await getMeta<{ userId: string; email: string }>("owner");
     const displayName = await getMeta<string | null>("displayName");
+    const avatarUrl = (await getMeta<string | null>("avatarUrl")) ?? null;
     const email = owner?.email ?? "";
-    return { email, displayName: displayName || email.split("@")[0] || "You", hasDisplayName: !!displayName };
+    return { email, displayName: displayName || email.split("@")[0] || "You", hasDisplayName: !!displayName, avatarUrl };
   });
 }
 

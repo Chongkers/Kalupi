@@ -8,6 +8,7 @@ import { renameCategory, setCategoryArchived } from "@/lib/local/mutations";
 import { OPENING_BALANCE, type CategoryKind } from "@/lib/finance/types";
 import { ManageRow } from "../manage-row";
 import { AddCategoryForm } from "./add-category-form";
+import { StylePicker } from "./style-picker";
 
 function CategoryList({ kind }: { kind: CategoryKind }) {
   const overview = useOverview();
@@ -24,6 +25,7 @@ function CategoryList({ kind }: { kind: CategoryKind }) {
           id={c.id}
           name={c.name}
           details={c.name === OPENING_BALANCE ? "Used for starting balances" : undefined}
+          icon={<StylePicker category={c} />}
           archived={!!c.archived_at}
           locked={c.name === OPENING_BALANCE}
           rename={renameCategory}
@@ -37,7 +39,10 @@ function CategoryList({ kind }: { kind: CategoryKind }) {
 export default function CategoriesPage() {
   return (
     <>
-      <PageHeader title="Categories" description="Archive one to hide it from new entries; past entries keep it." />
+      <PageHeader
+        title="Categories"
+        description="Tap an icon to change its look. Archive one to hide it from new entries; past entries keep it."
+      />
       <Card>
         <CardContent>
           <AddCategoryForm />

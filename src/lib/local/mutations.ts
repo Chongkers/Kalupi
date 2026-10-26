@@ -2,6 +2,7 @@
 // rows in the outbox in one IndexedDB transaction, so the screen updates instantly (even
 // offline) and sync.ts sends them to Supabase when it can.
 import { monthStart, today, type DateString } from "@/lib/dates";
+import { isColor, isIcon } from "@/lib/finance/category-style";
 import { OPENING_BALANCE, type AccountKind, type CategoryKind } from "@/lib/finance/types";
 import { formatPeso, parseOptionalPeso, parsePeso } from "@/lib/money";
 import {
@@ -58,7 +59,10 @@ const ACCOUNT_KINDS: AccountKind[] = ["cash", "bank", "ewallet"];
 
 export type SetupInput = {
   accounts: { name: string; kind: AccountKind; balance: string }[];
+  /** Budget by category: a limit for each */
   limits: { categoryId: string; amount: string }[];
+  /** Or one total for the month ("" = budget by category) */
+  totalLimit?: string;
 };
 
 export async function completeSetup(input: SetupInput): Promise<Result> {
@@ -72,15 +76,18 @@ export async function completeSetup(input: SetupInput): Promise<Result> {
 
   const limits = input.limits.map((l) => ({ categoryId: l.categoryId, amount: parseOptionalPeso(l.amount) }));
   if (limits.some((l) => l.amount === null)) return { error: "Check the budget limits. Use numbers like 5000." };
+  const total = parseOptionalPeso(input.totalLimit ?? "");
+  if (total === null) return { error: "Check the monthly budget. Use a number like 20000." };
 
   const user = await userId();
   const changes: Change[] = [];
 
   // Budget template (month = null), copied into each new month
   const template = await templateBudget();
-  const templateRow: BudgetRow = template ?? newBudget(user, null);
-  if (!template) changes.push({ table: "budgets", row: templateRow });
-  changes.push(...(await limitChanges(templateRow.id, limits as { categoryId: string; amount: number }[])));
+  const templateRow: BudgetRow = { ...(template ?? newBudget(user, null)), total_limit: total > 0 ? total : null };
+  if (!template || total > 0) changes.push({ table: "budgets", row: templateRow });
+  // A total budget has no category limits
+  if (total === 0) changes.push(...(await limitChanges(templateRow.id, limits as { categoryId: string; amount: number }[])));
 
   // Accounts, and their starting balances as "Opening balance" income (docs/erd.md, Rules)
   const opening = await openingBalanceCategory(user, changes);
@@ -236,6 +243,16 @@ export async function renameCategory(categoryId: string, name: string): Promise<
     return { error: "That category already exists." };
   }
   await write([{ table: "categories", row: { ...category, name } }]);
+  return {};
+}
+
+/** The icon and color shown for a category. null = go back to the one picked from its name. */
+export async function setCategoryStyle(categoryId: string, icon: string | null, color: string | null): Promise<Result> {
+  const category = await db.categories.get(categoryId);
+  if (!category || category.deleted_at) return { error: "That category was removed." };
+  if (icon !== null && !isIcon(icon)) return { error: "Pick one of the icons." };
+  if (color !== null && !isColor(color)) return { error: "Pick one of the colors." };
+  await write([{ table: "categories", row: { ...category, icon, color } }]);
   return {};
 }
 

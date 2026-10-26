@@ -255,7 +255,7 @@ function Tracker({ tracker, today }: { tracker: TrackerView; today: string }) {
               <ul className="flex flex-col gap-4">
                 {tracker.members.map((m) => (
                   <li key={m.userId} className="flex items-center gap-3">
-                    <MemberAvatar name={m.name} />
+                    <MemberAvatar name={m.name} src={m.avatarUrl} />
                     <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="truncate font-medium">

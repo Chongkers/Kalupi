@@ -10,6 +10,7 @@ import type { PresetRow } from "@/lib/local/db";
 import { OPENING_BALANCE, type Category } from "@/lib/finance/types";
 import { savePreset } from "@/lib/local/mutations";
 import { toInputValue } from "@/lib/money";
+import { CategoryIcon } from "./category-icon";
 
 type PresetType = "expense" | "income" | "contribution";
 
@@ -148,8 +149,9 @@ export function PresetForm({
                   type="button"
                   aria-pressed={categoryId === c.id}
                   onClick={() => setCategoryId(c.id)}
-                  className="rounded-lg border border-input px-3 py-2 text-sm font-medium transition-colors hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                  className="flex items-center gap-2 rounded-lg border border-input py-1.5 pr-3 pl-1.5 text-sm font-medium transition-colors hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                 >
+                  <CategoryIcon category={c} size="xs" />
                   {c.name}
                 </button>
               ))}

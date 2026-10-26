@@ -16,6 +16,7 @@ import type { Overview } from "@/lib/local/hooks";
 import { logPreset } from "@/lib/local/mutations";
 import { formatPeso, parsePeso, toInputValue } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { CategoryIcon } from "./category-icon";
 
 /** The confirm sheet: amount and account can change; it's logged for today. */
 function LogPreset({ preset, overview, onDone }: { preset: PresetRow; overview: Overview; onDone: () => void }) {
@@ -110,6 +111,7 @@ function LogPreset({ preset, overview, onDone }: { preset: PresetRow; overview: 
 export function QuickAdd({ overview }: { overview: Overview }) {
   const [open, setOpen] = useState<PresetRow | null>(null);
   const presets = overview.presets.filter((p) => !p.archived_at);
+  const categoryById = new Map(overview.categories.map((c) => [c.id, c]));
 
   return (
     <>
@@ -123,8 +125,13 @@ export function QuickAdd({ overview }: { overview: Overview }) {
             key={p.id}
             type="button"
             onClick={() => setOpen(p)}
-            className="flex shrink-0 items-center gap-2 rounded-full border bg-card px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent active:scale-95"
+            className="flex shrink-0 items-center gap-2 rounded-full border bg-card py-1 pr-3 pl-1 text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent active:scale-95"
           >
+            <CategoryIcon
+              category={categoryById.get(p.category_id ?? "") ?? { name: p.type === "contribution" ? "savings" : p.name }}
+              size="xs"
+              className="rounded-full"
+            />
             {p.name}
             <span
               className={cn(

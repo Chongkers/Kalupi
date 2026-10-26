@@ -5,6 +5,7 @@ import { Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { SetupDialog } from "@/components/setup/setup-dialog";
 import { BudgetBar } from "@/components/finance/budget-bar";
+import { AccountIcon } from "@/components/finance/category-icon";
 import { QuickAdd } from "@/components/finance/quick-add";
 import { ProgressRing } from "@/components/trackers/progress-ring";
 import { BudgetDial, FlowStat, noSpendStreak, StreakPill } from "@/components/finance/month-stats";
@@ -191,7 +192,7 @@ function Dashboard({ overview }: { overview: Overview }) {
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 {budget.lines.slice(0, 5).map((line) => (
-                  <BudgetBar key={line.categoryId} line={line} />
+                  <BudgetBar key={line.categoryId} line={line} category={categories.find((c) => c.id === line.categoryId)} />
                 ))}
               </CardContent>
             </Card>
@@ -210,8 +211,9 @@ function Dashboard({ overview }: { overview: Overview }) {
             <CardContent>
               <ul className="divide-y">
                 {activeAccounts.map((a) => (
-                  <li key={a.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <span className="flex flex-col">
+                  <li key={a.id} className="flex items-center gap-3 py-2.5">
+                    <AccountIcon kind={a.kind} />
+                    <span className="flex min-w-0 flex-1 flex-col">
                       <span className="font-medium">{a.name}</span>
                       <span className="text-xs text-muted-foreground">{ACCOUNT_KIND_LABELS[a.kind]}</span>
                     </span>

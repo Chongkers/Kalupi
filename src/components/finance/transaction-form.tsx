@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { TriangleAlert } from "lucide-react";
+import { TriangleAlert, Zap } from "lucide-react";
 import { amountInputClass, inputClass, labelClass, selectClass, submitClass } from "@/components/form-styles";
 import {
   AlertDialog,
@@ -23,9 +23,11 @@ import { monthStart, type DateString } from "@/lib/dates";
 import type { BudgetSummary } from "@/lib/finance/budget";
 import { guardrailWarnings } from "@/lib/finance/guardrail";
 import { OPENING_BALANCE, type Category, type Transaction } from "@/lib/finance/types";
+import type { PresetRow } from "@/lib/local/db";
 import { saveTransaction } from "@/lib/local/mutations";
 import { formatPeso, parsePeso, toInputValue } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { CategoryIcon } from "./category-icon";
 
 type FormType = "expense" | "income" | "transfer";
 
@@ -46,9 +48,20 @@ export type TransactionFormProps = {
   initial?: Transaction;
   /** Amount read from a screenshot (Phase 10); fills the amount field and saves the entry as scanned */
   scannedAmount?: number | null;
+  /** Saved entries to fill the form in one tap (new entries only) */
+  presets?: PresetRow[];
 };
 
-export function TransactionForm({ accounts, categories, available, budget, today, initial, scannedAmount }: TransactionFormProps) {
+export function TransactionForm({
+  accounts,
+  categories,
+  available,
+  budget,
+  today,
+  initial,
+  scannedAmount,
+  presets = [],
+}: TransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [saveError, setSaveError] = useState<string>();
@@ -59,6 +72,9 @@ export function TransactionForm({ accounts, categories, available, budget, today
   const [warnings, setWarnings] = useState<string[]>([]);
   const pendingData = useRef<FormData | null>(null);
   const amountInput = useRef<HTMLInputElement>(null);
+  const accountSelect = useRef<HTMLSelectElement>(null);
+  const noteInput = useRef<HTMLTextAreaElement>(null);
+  const [presetId, setPresetId] = useState<string | null>(null);
 
   // A new scan result replaces whatever is in the amount field; the rest of the form stays as is
   useEffect(() => {
@@ -88,7 +104,7 @@ export function TransactionForm({ accounts, categories, available, budget, today
         categoryId: get("categoryId"),
         occurredOn: get("occurredOn"),
         note: get("note"),
-        source: scannedAmount ? "scan" : "manual",
+        source: scannedAmount ? "scan" : presetId ? "preset" : "manual",
       });
       if (result.error) setSaveError(result.error);
       else router.push("/transactions");
@@ -131,6 +147,18 @@ export function TransactionForm({ accounts, categories, available, budget, today
 
   const error = clientError ?? saveError;
 
+  // Presets for this type; tapping one fills the form, and everything stays editable before saving
+  const typePresets = initial ? [] : presets.filter((p) => p.type === type && !p.archived_at);
+  function applyPreset(preset: PresetRow) {
+    setPresetId(preset.id);
+    if (preset.category_id) setCategoryId(preset.category_id);
+    if (amountInput.current) amountInput.current.value = toInputValue(preset.amount);
+    if (noteInput.current) noteInput.current.value = preset.name;
+    if (preset.account_id && accountSelect.current && activeAccounts.some((a) => a.id === preset.account_id)) {
+      accountSelect.current.value = preset.account_id;
+    }
+  }
+
   return (
     <>
       <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -149,6 +177,7 @@ export function TransactionForm({ accounts, categories, available, budget, today
               onClick={() => {
                 setType(option.value);
                 setCategoryId("");
+                setPresetId(null);
               }}
               className="rounded-lg px-2 py-2 text-sm font-semibold text-muted-foreground transition-colors aria-checked:bg-card aria-checked:text-foreground aria-checked:shadow-sm"
             >
@@ -156,6 +185,26 @@ export function TransactionForm({ accounts, categories, available, budget, today
             </button>
           ))}
         </div>
+
+        {typePresets.length > 0 && (
+          <div className="-mx-1 flex items-center gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none]">
+            <span className="flex shrink-0 items-center gap-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <Zap className="size-3.5 text-primary" /> Presets
+            </span>
+            {typePresets.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                aria-pressed={presetId === p.id}
+                onClick={() => applyPreset(p)}
+                className="flex shrink-0 items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary/10"
+              >
+                {p.name}
+                <span className="text-muted-foreground tabular-nums">{formatPeso(p.amount, { whole: true })}</span>
+              </button>
+            ))}
+          </div>
+        )}
 
         <FieldGroup>
           <Field>
@@ -197,8 +246,9 @@ export function TransactionForm({ accounts, categories, available, budget, today
                     type="button"
                     aria-pressed={categoryId === c.id}
                     onClick={() => setCategoryId(c.id)}
-                    className="rounded-lg border border-input px-3 py-2 text-sm font-medium transition-colors hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
+                    className="flex items-center gap-2 rounded-lg border border-input py-1.5 pr-3 pl-1.5 text-sm font-medium transition-colors hover:bg-accent aria-pressed:border-primary aria-pressed:bg-primary aria-pressed:text-primary-foreground"
                   >
+                    <CategoryIcon category={c} size="xs" />
                     {c.name}
                   </button>
                 ))}
@@ -212,6 +262,7 @@ export function TransactionForm({ accounts, categories, available, budget, today
                 {type === "transfer" ? "From" : type === "income" ? "Into" : "Paid from"}
               </FieldLabel>
               <NativeSelect
+                ref={accountSelect}
                 id="accountId"
                 name="accountId"
                 defaultValue={initial?.account_id ?? activeAccounts[0]?.id}
@@ -283,6 +334,7 @@ export function TransactionForm({ accounts, categories, available, budget, today
               Note (optional)
             </FieldLabel>
             <Textarea
+              ref={noteInput}
               id="note"
               name="note"
               maxLength={200}

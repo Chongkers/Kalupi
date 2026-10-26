@@ -10,6 +10,7 @@ export type ProgressRow = {
   tracker_id: string;
   user_id: string;
   display_name: string | null;
+  avatar_url?: string | null;
   /** null for someone who left but still has contributions on the tracker */
   role: "owner" | "editor" | null;
   net_amount: number;
@@ -18,6 +19,7 @@ export type ProgressRow = {
 export type TrackerMember = {
   userId: string;
   name: string;
+  avatarUrl: string | null;
   role: "owner" | "editor" | null;
   net: number;
   isMe: boolean;
@@ -48,13 +50,14 @@ export function trackerMembers(
   const byUser = new Map<string, TrackerMember>();
 
   for (const m of memberRows.filter((m) => m.tracker_id === trackerId)) {
-    byUser.set(m.user_id, { userId: m.user_id, name: "Member", role: m.role, net: 0, isMe: m.user_id === me });
+    byUser.set(m.user_id, { userId: m.user_id, name: "Member", avatarUrl: null, role: m.role, net: 0, isMe: m.user_id === me });
   }
   for (const p of fromServer) {
     const existing = byUser.get(p.user_id);
     byUser.set(p.user_id, {
       userId: p.user_id,
       name: p.display_name || "Member",
+      avatarUrl: p.avatar_url ?? null,
       role: existing?.role ?? p.role,
       net: p.net_amount,
       isMe: p.user_id === me,

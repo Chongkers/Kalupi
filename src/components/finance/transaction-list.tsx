@@ -1,19 +1,13 @@
 import Link from "next/link";
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, PiggyBank } from "lucide-react";
+import { ArrowLeftRight, PiggyBank } from "lucide-react";
 import { formatDay, type DateString } from "@/lib/dates";
 import { groupByDay } from "@/lib/finance/list";
 import type { Transaction } from "@/lib/finance/types";
 import { Amount } from "./amount";
+import { CategoryIcon } from "./category-icon";
 
 type Named = { id: string; name: string };
-
-const ICONS = {
-  income: ArrowDownLeft,
-  expense: ArrowUpRight,
-  transfer: ArrowLeftRight,
-  contribution: PiggyBank,
-  withdrawal: PiggyBank,
-};
+type CategoryLike = Named & { kind?: "income" | "expense"; icon?: string | null; color?: string | null };
 
 /** Day-grouped rows (mockup p.10 "Recent"), each linking to its edit page. */
 export function TransactionList({
@@ -25,16 +19,18 @@ export function TransactionList({
 }: {
   transactions: Transaction[];
   accounts: Named[];
-  categories: Named[];
+  categories: CategoryLike[];
   today: DateString;
   grouped?: boolean;
 }) {
   const accountName = new Map(accounts.map((a) => [a.id, a.name]));
-  const categoryName = new Map(categories.map((c) => [c.id, c.name]));
+  const categoryById = new Map(categories.map((c) => [c.id, c]));
 
   const row = (t: Transaction) => {
-    const Icon = ICONS[t.type];
-    const category = t.category_id ? categoryName.get(t.category_id) : undefined;
+    const categoryRow = t.category_id ? categoryById.get(t.category_id) : undefined;
+    const category = categoryRow?.name;
+    // Income and expenses wear their category's icon; transfers and tracker entries a neutral one
+    const Icon = t.type === "transfer" ? ArrowLeftRight : PiggyBank;
     const title =
       t.note ||
       category ||
@@ -51,9 +47,13 @@ export function TransactionList({
     return (
       <li key={t.id}>
         <Link href={`/transactions/edit?id=${t.id}`} className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-accent">
-          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
-            <Icon className="size-5" />
-          </span>
+          {categoryRow ? (
+            <CategoryIcon category={categoryRow} />
+          ) : (
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+              <Icon className="size-5" />
+            </span>
+          )}
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-medium">{title}</span>
             <span className="truncate text-sm text-muted-foreground">{details}</span>

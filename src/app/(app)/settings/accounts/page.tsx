@@ -7,6 +7,7 @@ import { ACCOUNT_KIND_LABELS } from "@/lib/finance/types";
 import { useOverview } from "@/lib/local/hooks";
 import { setAccountArchived, renameAccount } from "@/lib/local/mutations";
 import { formatPeso } from "@/lib/money";
+import { AccountIcon } from "@/components/finance/category-icon";
 import { ManageRow } from "../manage-row";
 import { AddAccountForm } from "./add-account-form";
 
@@ -24,6 +25,7 @@ function AccountList() {
           id={a.id}
           name={a.name}
           details={`${ACCOUNT_KIND_LABELS[a.kind]} · ${formatPeso(a.balance)}`}
+          icon={<AccountIcon kind={a.kind} />}
           archived={a.archived}
           rename={renameAccount}
           setArchived={setAccountArchived}

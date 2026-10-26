@@ -47,7 +47,7 @@ function TrackerCard({ tracker, today }: { tracker: TrackerView; today: string }
           <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3 text-sm">
             <span className="flex -space-x-2">
               {tracker.members.slice(0, 4).map((m) => (
-                <MemberAvatar key={m.userId} name={m.name} className="size-7 text-[10px]" />
+                <MemberAvatar key={m.userId} name={m.name} src={m.avatarUrl} className="size-7 text-[10px]" />
               ))}
               {tracker.members.length <= 1 && (
                 <span className="flex items-center gap-1 pl-3 text-muted-foreground">

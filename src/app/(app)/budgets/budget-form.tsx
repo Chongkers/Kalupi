@@ -11,9 +11,11 @@ import { Switch } from "@/components/ui/switch";
 import type { DateString } from "@/lib/dates";
 import { formatPeso, parseOptionalPeso, toInputValue } from "@/lib/money";
 import { saveBudget } from "@/lib/local/mutations";
+import type { Category } from "@/lib/finance/types";
 import { cn } from "@/lib/utils";
+import { CategoryIcon } from "@/components/finance/category-icon";
 
-type Row = { categoryId: string; name: string; limit: number };
+type Row = { categoryId: string; name: string; limit: number; category?: Category };
 type Draft = { key: string; name: string; amount: string };
 
 function PesoInput({ className, ...props }: React.ComponentProps<typeof Input>) {
@@ -81,7 +83,8 @@ export function BudgetForm({
   const unplanned = useOverall && overallValue > 0 ? overallValue - categorySum : null;
 
   return (
-    <form action={save} className="flex flex-col gap-4">
+    // @container: the category list goes two-across when the form is wide (Budget page), one on phones and History
+    <form action={save} className="@container flex flex-col gap-4">
       {/* Custom overall limit */}
       <div className="flex flex-col gap-3 rounded-xl border p-3">
         <label className="flex items-center justify-between gap-4">
@@ -114,23 +117,26 @@ export function BudgetForm({
         )}
       </div>
 
-      <ul className="divide-y">
+      <ul className="grid @xl:grid-cols-2 @xl:gap-x-8">
         {rows.map((row) => (
-          <li key={row.categoryId}>
+          <li key={row.categoryId} className="border-b">
             <label className="flex items-center justify-between gap-4 py-3">
-              <span className="font-medium">{row.name}</span>
+              <span className="flex min-w-0 items-center gap-2.5">
+                <CategoryIcon category={row.category ?? { name: row.name }} size="sm" />
+                <span className="truncate font-medium">{row.name}</span>
+              </span>
               <PesoInput
                 name={`limit:${row.categoryId}`}
                 placeholder="No limit"
                 value={valueOf(row)}
                 onChange={(e) => setValues((v) => ({ ...v, [row.categoryId]: e.target.value }))}
-                className="w-40"
+                className="w-32 shrink-0"
               />
             </label>
           </li>
         ))}
         {drafts.map((draft) => (
-          <li key={draft.key} className="flex items-center gap-2 py-3">
+          <li key={draft.key} className="flex items-center gap-2 border-b py-3 @xl:col-span-2">
             <span className="relative min-w-0 flex-1">
               <Tag className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-primary" />
               <Input

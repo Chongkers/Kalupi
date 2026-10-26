@@ -1,3 +1,4 @@
+import { ProfileAvatar } from "@/components/profile-avatar";
 import { cn } from "@/lib/utils";
 
 /** A full-circle progress ring with the percent in the middle. Turns income-green once the goal is reached. */
@@ -68,22 +69,7 @@ export function Milestones({ percent }: { percent: number }) {
   );
 }
 
-/** Initials in a circle, for member lists. */
-export function MemberAvatar({ name, className }: { name: string; className?: string }) {
-  const initials = name
-    .split(/\s+/)
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-  return (
-    <span
-      className={cn(
-        "flex size-9 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-primary ring-2 ring-card",
-        className,
-      )}
-    >
-      {initials || "?"}
-    </span>
-  );
+/** A member's picture (or initials), ringed so overlapping avatars stay distinct. */
+export function MemberAvatar({ name, src, className }: { name: string; src?: string | null; className?: string }) {
+  return <ProfileAvatar name={name} src={src} className={cn("size-9 shrink-0 text-xs ring-2 ring-card", className)} />;
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ChevronsUpDown, LogOut, SlidersHorizontal } from "lucide-react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ProfileAvatar } from "@/components/profile-avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,7 +14,7 @@ import { useLocalProfile } from "@/lib/local/hooks";
 import { cn } from "@/lib/utils";
 import { logOutOfDevice } from "./logout";
 
-export type UserSummary = { displayName: string; email: string };
+export type UserSummary = { displayName: string; email: string; avatarUrl?: string | null };
 
 /** The signed-in user's menu, from the profile cached on this device (works offline). */
 export function CurrentUserMenu({ compact, className }: { compact?: boolean; className?: string }) {
@@ -34,11 +34,7 @@ export function UserMenu({ user, compact, className }: { user: UserSummary; comp
           className
         )}
       >
-        <Avatar>
-          <AvatarFallback className="bg-lavender font-semibold text-foreground">
-            {user.displayName.charAt(0).toUpperCase()}
-          </AvatarFallback>
-        </Avatar>
+        <ProfileAvatar name={user.displayName} src={user.avatarUrl} />
         {!compact && (
           <>
             <span className="flex min-w-0 flex-1 flex-col">

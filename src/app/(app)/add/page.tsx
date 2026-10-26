@@ -26,6 +26,7 @@ export default function AddEntryPage() {
               budget={overview.budget}
               today={overview.today}
               scannedAmount={scanned}
+              presets={overview.presets}
             />
           ) : (
             <Skeleton className="h-[32rem] w-full" />

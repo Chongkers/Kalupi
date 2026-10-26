@@ -220,8 +220,11 @@ async function pull() {
   // Display name for the account menu (profiles aren't a synced table)
   const owner = await getMeta<{ userId: string }>("owner");
   if (owner) {
-    const { data } = await supabase.from("profiles").select("display_name").eq("id", owner.userId).maybeSingle();
-    if (data) await setMeta("displayName", data.display_name);
+    const { data } = await supabase.from("profiles").select("*").eq("id", owner.userId).maybeSingle();
+    if (data) {
+      await setMeta("displayName", data.display_name);
+      await setMeta("avatarUrl", data.avatar_url ?? null);
+    }
   }
   await setMeta("pulledOnce", true);
 }

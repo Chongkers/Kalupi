@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, LayoutList, Plus, Target, Trash2 } from "lucide-react";
+import { CategoryIcon } from "@/components/finance/category-icon";
 import { inputClass, labelClass, selectClass, submitClass } from "@/components/form-styles";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,8 +13,15 @@ import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import { ACCOUNT_KIND_LABELS, type AccountKind } from "@/lib/finance/types";
 import { formatPeso, parseOptionalPeso } from "@/lib/money";
 import { completeSetup } from "@/lib/local/mutations";
+import { cn } from "@/lib/utils";
 
 type AccountRow = { key: string; name: string; kind: AccountKind; balance: string };
+type BudgetMode = "total" | "categories";
+
+const MODES: { value: BudgetMode; title: string; text: string; icon: typeof Target }[] = [
+  { value: "total", title: "One total", text: "A single limit for everything you spend", icon: Target },
+  { value: "categories", title: "By category", text: "A limit for food, fare, bills and so on", icon: LayoutList },
+];
 
 const newRow = (name = "", kind: AccountKind = "cash"): AccountRow => ({ key: crypto.randomUUID(), name, kind, balance: "" });
 
@@ -21,6 +29,8 @@ const newRow = (name = "", kind: AccountKind = "cash"): AccountRow => ({ key: cr
 export function SetupWizard({ expenseCategories }: { expenseCategories: { id: string; name: string }[] }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [accounts, setAccounts] = useState<AccountRow[]>(() => [newRow("Wallet", "cash")]);
+  const [mode, setMode] = useState<BudgetMode>("total");
+  const [total, setTotal] = useState("");
   const [limits, setLimits] = useState<Record<string, string>>({});
   const [error, setError] = useState<string>();
   const [isPending, startTransition] = useTransition();
@@ -42,7 +52,8 @@ export function SetupWizard({ expenseCategories }: { expenseCategories: { id: st
     startTransition(async () => {
       const result = await completeSetup({
         accounts: accounts.map(({ name, kind, balance }) => ({ name, kind, balance })),
-        limits: Object.entries(limits).map(([categoryId, amount]) => ({ categoryId, amount })),
+        limits: mode === "categories" ? Object.entries(limits).map(([categoryId, amount]) => ({ categoryId, amount })) : [],
+        totalLimit: mode === "total" ? total : "",
       });
       // On success the dashboard sees the new accounts and closes the dialog itself
       if (result.error) setError(result.error);
@@ -61,7 +72,7 @@ export function SetupWizard({ expenseCategories }: { expenseCategories: { id: st
         <DialogDescription className="text-base">
           {step === 1
             ? "Where your money sits: cash, bank and e-wallets. Enter what's in each right now."
-            : "A spending limit per category. Every new month starts with these; leave blank for no limit."}
+            : "How do you want to budget? Every new month starts from this, and you can change it any time."}
         </DialogDescription>
       </div>
 
@@ -129,29 +140,76 @@ export function SetupWizard({ expenseCategories }: { expenseCategories: { id: st
           </Button>
         </div>
       ) : (
-        <Card>
-          <CardContent className="flex flex-col divide-y">
-            {expenseCategories.map((category) => (
-              <label key={category.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
-                <span className="font-medium">{category.name}</span>
-                <span className="relative w-40">
+        <div className="flex flex-col gap-4">
+          <div role="radiogroup" aria-label="Budget type" className="grid grid-cols-2 gap-2">
+            {MODES.map(({ value, title, text, icon: Icon }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={mode === value}
+                onClick={() => setMode(value)}
+                className="flex flex-col items-start gap-1.5 rounded-xl border p-3 text-left transition-colors hover:bg-accent aria-checked:border-primary aria-checked:bg-primary/10"
+              >
+                <Icon className={cn("size-5", mode === value ? "text-primary" : "text-muted-foreground")} />
+                <span className="font-semibold">{title}</span>
+                <span className="text-xs text-muted-foreground">{text}</span>
+              </button>
+            ))}
+          </div>
+
+          {mode === "total" ? (
+            <Card>
+              <CardContent className="flex flex-col gap-2">
+                <label htmlFor="setup-total" className={labelClass}>
+                  Monthly budget
+                </label>
+                <div className="relative">
                   <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">₱</span>
                   <Input
+                    id="setup-total"
                     inputMode="decimal"
-                    placeholder="No limit"
-                    value={limits[category.id] ?? ""}
-                    onChange={(e) => setLimits((l) => ({ ...l, [category.id]: e.target.value }))}
-                    className={`${inputClass} pl-7 text-right`}
+                    placeholder="e.g. 20000"
+                    value={total}
+                    onChange={(e) => setTotal(e.target.value)}
+                    autoFocus
+                    className={`${inputClass} pl-7 text-lg font-semibold`}
                   />
-                </span>
-              </label>
-            ))}
-            <div className="flex items-center justify-between pt-3 font-semibold">
-              <span>Total per month</span>
-              <span className="tabular-nums">{formatPeso(totalLimit)}</span>
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Leave blank to skip for now. You can add category limits later under Budget.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex flex-col divide-y">
+                {expenseCategories.map((category) => (
+                  <label key={category.id} className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0">
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <CategoryIcon category={{ name: category.name, kind: "expense" }} size="sm" />
+                      <span className="truncate font-medium">{category.name}</span>
+                    </span>
+                    <span className="relative w-36 shrink-0">
+                      <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted-foreground">₱</span>
+                      <Input
+                        inputMode="decimal"
+                        placeholder="No limit"
+                        value={limits[category.id] ?? ""}
+                        onChange={(e) => setLimits((l) => ({ ...l, [category.id]: e.target.value }))}
+                        className={`${inputClass} pl-7 text-right`}
+                      />
+                    </span>
+                  </label>
+                ))}
+                <div className="flex items-center justify-between pt-3 font-semibold">
+                  <span>Total per month</span>
+                  <span className="tabular-nums">{formatPeso(totalLimit)}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
       )}
 
       <FieldError>{error}</FieldError>

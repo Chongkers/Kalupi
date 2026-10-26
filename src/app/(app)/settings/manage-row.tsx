@@ -14,6 +14,7 @@ export function ManageRow({
   id,
   name,
   details,
+  icon,
   archived,
   locked,
   rename,
@@ -22,6 +23,8 @@ export function ManageRow({
   id: string;
   name: string;
   details?: React.ReactNode;
+  /** Shown before the name: an icon, or a button that changes it */
+  icon?: React.ReactNode;
   archived: boolean;
   /** Built-in rows (Opening balance) can't be renamed or archived */
   locked?: boolean;
@@ -51,6 +54,7 @@ export function ManageRow({
         </form>
       ) : (
         <div className="flex items-center gap-3">
+          {icon}
           <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-medium">
               {name}

@@ -12,6 +12,14 @@
     --color-expense: var(--expense);
     --color-lavender: var(--lavender);
     --color-leaf: var(--leaf);
+    --color-cat-blue: var(--cat-blue);
+    --color-cat-orange: var(--cat-orange);
+    --color-cat-aqua: var(--cat-aqua);
+    --color-cat-yellow: var(--cat-yellow);
+    --color-cat-magenta: var(--cat-magenta);
+    --color-cat-green: var(--cat-green);
+    --color-cat-violet: var(--cat-violet);
+    --color-cat-red: var(--cat-red);
     --color-mint: var(--mint);
     --color-mint-foreground: var(--mint-foreground);
     --color-sidebar-ring: var(--sidebar-ring);
@@ -78,6 +86,15 @@
     --expense: oklch(0.551 0.168 31.9);             /* #c0402b "−₱" amounts */
     --lavender: oklch(0.693 0.110 289.8);           /* #9b90dc logo, auth panel */
     --leaf: oklch(0.834 0.130 141.7);               /* #97de8e savings, logo green */
+    /* Category icon colors (dataviz reference palette, validated light/dark steps) */
+    --cat-blue: #2a78d6;
+    --cat-orange: #eb6834;
+    --cat-aqua: #1baf7a;
+    --cat-yellow: #eda100;
+    --cat-magenta: #e87ba4;
+    --cat-green: #008300;
+    --cat-violet: #6250d6;
+    --cat-red: #e34948;
     --mint: oklch(0.925 0.101 156.8);               /* #adfbcb badges, success */
     --mint-foreground: oklch(0.233 0.060 286.5);
     --chart-1: oklch(0.496 0.160 283.7);            /* #5a4fb8 */
@@ -119,6 +136,15 @@
     --expense: oklch(0.708 0.150 34.6);             /* #ef7a5e */
     --lavender: oklch(0.693 0.110 289.8);
     --leaf: oklch(0.760 0.142 146.9);
+    /* Category icon colors, dark steps */
+    --cat-blue: #3987e5;
+    --cat-orange: #d95926;
+    --cat-aqua: #199e70;
+    --cat-yellow: #c98500;
+    --cat-magenta: #d55181;
+    --cat-green: #008300;
+    --cat-violet: #9085e9;
+    --cat-red: #e66767;
     --mint: oklch(0.282 0.032 153.3);               /* #1d2e22 */
     --mint-foreground: oklch(0.925 0.101 156.8);
     --chart-1: oklch(0.658 0.164 285.4);

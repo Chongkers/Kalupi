@@ -17,6 +17,7 @@ import { OPENING_BALANCE } from "@/lib/finance/types";
 import { useMonth, useOverview, type Overview } from "@/lib/local/hooks";
 import { formatPeso, formatSignedPeso } from "@/lib/money";
 import { cn } from "@/lib/utils";
+import { CategoryIcon } from "@/components/finance/category-icon";
 import { BudgetForm } from "../budgets/budget-form";
 
 const statLabel = "text-xs font-semibold uppercase tracking-wide text-muted-foreground";
@@ -96,6 +97,7 @@ function Report({ month, overview }: { month: DateString; overview: Overview }) 
   const isCurrent = month === monthStart(overview.today);
 
   const names = new Map(categories.map((c) => [c.id, c.name]));
+  const byId = new Map(categories.map((c) => [c.id, c]));
   const byCategory = [...spentByCategory(transactions)].map(([id, amount]) => ({ id, name: names.get(id) ?? "Unknown", amount }));
   byCategory.sort((a, b) => b.amount - a.amount);
   const biggest = byCategory[0]?.amount ?? 1;
@@ -103,7 +105,7 @@ function Report({ month, overview }: { month: DateString; overview: Overview }) 
   const limits = new Map(budgetRow?.items.map((i) => [i.category_id, i.limit_amount]));
   const budgetRows = categories
     .filter((c) => c.kind === "expense" && (!c.archived_at || limits.has(c.id)))
-    .map((c) => ({ categoryId: c.id, name: c.name, limit: limits.get(c.id) ?? 0 }));
+    .map((c) => ({ categoryId: c.id, name: c.name, limit: limits.get(c.id) ?? 0, category: c }));
 
   const entries = [...transactions].reverse();
 
@@ -162,7 +164,10 @@ function Report({ month, overview }: { month: DateString; overview: Overview }) 
             )}
             {budget?.lines.map((line) => (
               <div key={line.categoryId} className="flex items-center justify-between gap-3 text-sm">
-                <span className="truncate">{line.name}</span>
+                <span className="flex min-w-0 items-center gap-2">
+                  <CategoryIcon category={byId.get(line.categoryId) ?? { name: line.name }} size="xs" />
+                  <span className="truncate">{line.name}</span>
+                </span>
                 <span className={cn("shrink-0 tabular-nums", line.over ? "font-semibold text-expense" : "text-muted-foreground")}>
                   {formatPeso(line.spent, { whole: true })} / {formatPeso(line.limit, { whole: true })}
                 </span>
@@ -198,7 +203,10 @@ function Report({ month, overview }: { month: DateString; overview: Overview }) 
                 {byCategory.map((c) => (
                   <li key={c.id} className="flex flex-col gap-1.5">
                     <div className="flex items-baseline justify-between gap-3 text-sm">
-                      <span className="truncate font-medium">{c.name}</span>
+                      <span className="flex min-w-0 items-center gap-2">
+                        <CategoryIcon category={byId.get(c.id) ?? { name: c.name }} size="xs" />
+                        <span className="truncate font-medium">{c.name}</span>
+                      </span>
                       <span className="shrink-0 tabular-nums">
                         {formatPeso(c.amount, { whole: true })}
                         <span className="ml-1.5 text-muted-foreground">{Math.round((c.amount / moneyOut) * 100)}%</span>

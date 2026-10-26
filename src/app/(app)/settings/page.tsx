@@ -15,7 +15,13 @@ function Profile() {
   const profile = useLocalProfile();
   if (!profile) return <Skeleton className="h-36 w-full" />;
 
-  return <ProfileForm displayName={profile.hasDisplayName ? profile.displayName : ""} email={profile.email} />;
+  return (
+    <ProfileForm
+      displayName={profile.hasDisplayName ? profile.displayName : ""}
+      email={profile.email}
+      avatarUrl={profile.avatarUrl}
+    />
+  );
 }
 
 export default function SettingsPage() {
@@ -23,7 +29,8 @@ export default function SettingsPage() {
     <>
       <PageHeader title="Settings" description="Your account and how Kalupi looks" />
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+      {/* items-start: the profile card is only as tall as its content */}
+      <div className="grid items-start gap-6 lg:grid-cols-[1fr_22rem]">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Profile</CardTitle>
