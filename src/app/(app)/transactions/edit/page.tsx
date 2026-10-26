@@ -28,7 +28,8 @@ function Editor() {
     );
   }
 
-  if (transaction.type === "contribution" || transaction.type === "withdrawal") {
+  // Tracker entries, split bills and paybacks
+  if (transaction.tracker_id) {
     return (
       <p className="text-muted-foreground">
         Tracker entries are edited from their tracker.{" "}

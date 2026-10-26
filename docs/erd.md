@@ -21,6 +21,10 @@ erDiagram
     TRACKERS ||--o{ TRACKER_INVITES : has
     TRACKERS ||--o{ TRANSACTIONS : "funded by"
     TRACKERS ||--o{ PRESETS : "funded by"
+    TRACKERS ||--o{ SPLIT_PEOPLE : "settles with"
+    SPLIT_PEOPLE ||--o{ SPLIT_SHARES : "owes / is owed"
+    TRANSACTIONS ||--o{ SPLIT_SHARES : "split into"
+    CATEGORIES ||--o{ SPLIT_SHARES : "your share counts toward"
 
     PROFILES {
         uuid id PK "same id as auth.users"
@@ -74,12 +78,12 @@ erDiagram
     TRANSACTIONS {
         uuid id PK
         uuid user_id FK "who paid or received"
-        text type "income | expense | contribution | withdrawal | transfer"
+        text type "income | expense | contribution | withdrawal | transfer | settle_in | settle_out"
         bigint amount "centavos, always positive"
         uuid account_id FK "account used; source account for transfers"
         uuid to_account_id FK "transfer only: destination account"
         uuid category_id FK "income and expense only"
-        uuid tracker_id FK "contribution and withdrawal only"
+        uuid tracker_id FK "contribution, withdrawal, settle_in/out; on an expense = a split bill"
         date occurred_on
         text note
         text source "manual | preset | scan"
@@ -105,7 +109,8 @@ erDiagram
     TRACKERS {
         uuid id PK
         text name
-        bigint target_amount "centavos"
+        text kind "goal | split"
+        bigint target_amount "centavos; null for split"
         date target_date "nullable"
         uuid created_by FK
         timestamptz archived_at "null = active"
@@ -119,6 +124,31 @@ erDiagram
         uuid user_id PK, FK
         text role "owner | editor"
         timestamptz joined_at
+        timestamptz updated_at "set by server, used as sync cursor"
+        timestamptz deleted_at "null = live, soft delete for sync"
+    }
+
+    SPLIT_PEOPLE {
+        uuid id PK
+        uuid tracker_id FK
+        uuid user_id FK "who keeps the list"
+        text name "just a name, not an account"
+        timestamptz created_at
+        timestamptz updated_at "set by server, used as sync cursor"
+        timestamptz deleted_at "null = live, soft delete for sync"
+    }
+
+    SPLIT_SHARES {
+        uuid id PK
+        uuid user_id FK
+        uuid tracker_id FK
+        uuid person_id FK
+        uuid transaction_id FK "nullable: your bill or a payback"
+        uuid category_id FK "nullable: only on a bill a friend paid"
+        bigint amount "centavos; + they owe you, - you owe them"
+        date occurred_on
+        text note
+        timestamptz created_at
         timestamptz updated_at "set by server, used as sync cursor"
         timestamptz deleted_at "null = live, soft delete for sync"
     }
@@ -139,12 +169,21 @@ erDiagram
 
 ## Derived values (never stored)
 
-- **Account balance** = income − expense + transfers in − transfers out, for that account.
+- **Account balance** = income − expense + transfers in − transfers out + settle_in − settle_out, for that account.
 - **Available balance** = sum of the user's account balances − (contributions − withdrawals). Contributions earmark money for a tracker; it stays in its account.
 - **Monthly budget total** = the budget's `total_limit` when the user set one, otherwise the sum of its `budget_items.limit_amount`.
-- **Spent this month** = sum of all expense transactions in the month, compared against the total.
-- **Spent in a category this month** = sum of expense transactions in that category with `occurred_on` in the month.
+- **Spent this month** = sum of all expense transactions in the month, compared against the total. For split bills only your share counts (see Settle-up).
+- **Spent in a category this month** = sum of expense transactions in that category with `occurred_on` in the month, same rule.
 - **Tracker progress** = contribution − withdrawal, over all members' transactions on that tracker.
+- **What someone owes you** (settle-up) = sum of their `split_shares.amount`; negative = you owe them.
+
+## Settle-up trackers (v1.0.2)
+
+- **You paid a bill:** one expense for the full amount from your account (with `tracker_id`), plus a share per friend (+their part). Your budget counts the expense minus those shares.
+- **A friend paid:** no transaction. One share on the payer (−your part) with the category it counts toward; your budget counts your part on that date.
+- **Paybacks:** `settle_in` (they paid you) or `settle_out` (you paid them), from or into an account, plus a share that moves their balance toward zero. Never income or spending.
+- Deleting a bill or payback deletes its shares. People are removed only once their balance is zero.
+- Settle-up trackers are personal for now: no invites, and the people are names only.
 
 ## Sync (offline support)
 

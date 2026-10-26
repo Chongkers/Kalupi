@@ -51,7 +51,7 @@ export default function PresetsPage() {
     ...trackers.trackers.map((t) => [t.id, t.name] as const),
     ...overview.accounts.map((a) => [a.id, a.name] as const),
   ]);
-  const activeTrackers = trackers.trackers.filter((t) => !t.archived);
+  const activeTrackers = trackers.trackers.filter((t) => !t.archived && t.kind === "goal");
   const sorted = [...overview.presets].sort((a, b) => Number(!!a.archived_at) - Number(!!b.archived_at));
 
   return (

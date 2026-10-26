@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeftRight, PiggyBank } from "lucide-react";
+import { ArrowLeftRight, HandCoins, PiggyBank } from "lucide-react";
 import { formatDay, type DateString } from "@/lib/dates";
 import { groupByDay } from "@/lib/finance/list";
 import type { Transaction } from "@/lib/finance/types";
@@ -30,11 +30,17 @@ export function TransactionList({
     const categoryRow = t.category_id ? categoryById.get(t.category_id) : undefined;
     const category = categoryRow?.name;
     // Income and expenses wear their category's icon; transfers and tracker entries a neutral one
-    const Icon = t.type === "transfer" ? ArrowLeftRight : PiggyBank;
+    const Icon = t.type === "transfer" ? ArrowLeftRight : t.type === "settle_in" || t.type === "settle_out" ? HandCoins : PiggyBank;
     const title =
       t.note ||
       category ||
-      { transfer: "Transfer", contribution: "Added to a tracker", withdrawal: "Withdrew from a tracker" }[t.type as string] ||
+      {
+        transfer: "Transfer",
+        contribution: "Added to a tracker",
+        withdrawal: "Withdrew from a tracker",
+        settle_in: "Paid back to you",
+        settle_out: "You paid someone back",
+      }[t.type as string] ||
       "Entry";
     const where =
       t.type === "transfer"

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { HandCoins, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { SetupDialog } from "@/components/setup/setup-dialog";
 import { BudgetBar } from "@/components/finance/budget-bar";
@@ -31,6 +31,16 @@ function MonthLine({ today }: { today: string }) {
   );
 }
 
+function splitLine(owedToYou: number, youOwe: number) {
+  if (owedToYou === 0 && youOwe === 0) return "All settled";
+  return [
+    owedToYou > 0 && `${formatPeso(owedToYou, { whole: true })} owed to you`,
+    youOwe > 0 && `you owe ${formatPeso(youOwe, { whole: true })}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function TrackersCard() {
   const data = useTrackers();
   const active = data?.trackers.filter((t) => !t.archived) ?? [];
@@ -51,11 +61,19 @@ function TrackersCard() {
           {active.slice(0, 3).map((t) => (
             <li key={t.id}>
               <Link href={`/trackers/view?id=${t.id}`} className="flex items-center gap-3 rounded-lg transition-colors hover:bg-accent/40">
-                <ProgressRing percent={(t.total / t.target_amount) * 100} size="size-14" compact />
+                {t.kind === "split" ? (
+                  <span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+                    <HandCoins className="size-6" />
+                  </span>
+                ) : (
+                  <ProgressRing percent={(t.total / t.target_amount) * 100} size="size-14" compact />
+                )}
                 <span className="flex min-w-0 flex-col">
                   <span className="truncate font-medium">{t.name}</span>
                   <span className="text-sm text-muted-foreground tabular-nums">
-                    {formatPeso(t.total, { whole: true })} of {formatPeso(t.target_amount, { whole: true })}
+                    {t.kind === "split"
+                      ? splitLine(t.owedToYou, t.youOwe)
+                      : `${formatPeso(t.total, { whole: true })} of ${formatPeso(t.target_amount, { whole: true })}`}
                   </span>
                 </span>
               </Link>
@@ -68,23 +86,24 @@ function TrackersCard() {
 }
 
 function Dashboard({ overview }: { overview: Overview }) {
-  const { accounts, categories, available, budget, today, monthTransactions } = overview;
-  const { moneyIn, moneyOut } = inAndOut(monthTransactions, overview.openingBalanceId);
+  // Spending counts your share of split bills, not what you fronted for friends
+  const { accounts, categories, available, budget, today, monthSpending } = overview;
+  const { moneyIn, moneyOut } = inAndOut(monthSpending, overview.openingBalanceId);
   const { day, of } = dayOfMonth(today);
-  const inDays = dailyTotals(monthTransactions, "income", of, overview.openingBalanceId);
-  const outDays = dailyTotals(monthTransactions, "expense", of);
+  const inDays = dailyTotals(monthSpending, "income", of, overview.openingBalanceId);
+  const outDays = dailyTotals(monthSpending, "expense", of);
   const net = moneyIn - moneyOut;
 
   // Last month up to the same day, so a half-finished month compares fairly
   const prevStart = addMonths(monthStart(today), -1);
   const prevEnd = `${prevStart.slice(0, 8)}${String(Math.min(day, dayOfMonth(prevStart).of)).padStart(2, "0")}`;
   const prev = inAndOut(
-    overview.transactions.filter((t) => t.occurred_on >= prevStart && t.occurred_on <= prevEnd),
+    overview.spending.filter((t) => t.occurred_on >= prevStart && t.occurred_on <= prevEnd),
     overview.openingBalanceId,
   );
   const prevLabel = formatMonth(prevStart).slice(0, 3);
   const incomeCount = inDays.filter((d) => d > 0).length;
-  const expenseCount = monthTransactions.filter((t) => t.type === "expense").length;
+  const expenseCount = monthSpending.filter((t) => t.type === "expense" && t.amount > 0).length;
 
   const recent = groupByDay(overview.transactions).flatMap((g) => g.items).slice(0, 5);
   const activeAccounts = accounts.filter((a) => !a.archived);

@@ -2,7 +2,7 @@ import type { TransactionType } from "@/lib/finance/types";
 import { formatPeso, formatSignedPeso } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
-/** A transaction amount, signed and colored by type: income green "+", expense red "−", transfers neutral. */
+/** A transaction amount, signed and colored by type: income green "+", expense red "−", paybacks signed but neutral, transfers neutral. */
 export function Amount({
   type,
   amount,
@@ -15,9 +15,9 @@ export function Amount({
   className?: string;
 }) {
   const text =
-    type === "income"
+    type === "income" || type === "settle_in"
       ? formatSignedPeso(amount, "in", { whole })
-      : type === "expense"
+      : type === "expense" || type === "settle_out"
         ? formatSignedPeso(amount, "out", { whole })
         : formatPeso(amount, { whole });
 

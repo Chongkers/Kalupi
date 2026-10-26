@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-/** Wallet + KALUPI wordmark. Lavender on transparent, so put it on a light chip over lavender backgrounds. */
+/** Wallet + KALUPI wordmark. Lavender on transparent: use it on white or dark ink, not on lavender. */
 export function Logo({ className, priority }: { className?: string; priority?: boolean }) {
   return (
     <Image

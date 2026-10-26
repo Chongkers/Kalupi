@@ -3,20 +3,86 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarClock, Goal, Plus, Users } from "lucide-react";
+import { ArrowLeft, CalendarClock, Goal, HandCoins, Plus, Users } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { MemberAvatar, Milestones, ProgressRing } from "@/components/trackers/progress-ring";
-import { TrackerForm } from "@/components/trackers/tracker-form";
+import { TrackerForm, TrackerKindPicker } from "@/components/trackers/tracker-form";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDay } from "@/lib/dates";
 import { daysUntil, monthlyNeeded } from "@/lib/finance/trackers";
-import { useTrackers, type TrackerView } from "@/lib/local/hooks";
+import type { TrackerKind } from "@/lib/finance/types";
+import { useTrackers, type GoalTrackerView, type SplitTrackerView, type TrackerView } from "@/lib/local/hooks";
 import { formatPeso } from "@/lib/money";
 
+function SplitTrackerCard({ tracker, today }: { tracker: SplitTrackerView; today: string }) {
+  const settled = tracker.owedToYou === 0 && tracker.youOwe === 0;
+  const bills = tracker.entries.filter((e) => e.kind === "you-paid" || e.kind === "they-paid").length;
+
+  return (
+    <Link href={`/trackers/view?id=${tracker.id}`} className="group">
+      <Card className="h-full transition-colors group-hover:bg-accent/40">
+        <CardContent className="flex h-full flex-col gap-4">
+          <div className="flex items-start gap-4">
+            <span className="flex size-24 shrink-0 items-center justify-center rounded-full bg-secondary text-primary">
+              <HandCoins className="size-10" />
+            </span>
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <span className="truncate text-lg font-semibold">{tracker.name}</span>
+              {settled ? (
+                <span className="text-sm font-medium text-income">{bills > 0 ? "All settled 🎉" : "No bills yet"}</span>
+              ) : (
+                <>
+                  {tracker.owedToYou > 0 && (
+                    <span className="text-sm tabular-nums">
+                      <span className="font-semibold">{formatPeso(tracker.owedToYou, { whole: true })}</span>
+                      <span className="text-muted-foreground"> owed to you</span>
+                    </span>
+                  )}
+                  {tracker.youOwe > 0 && (
+                    <span className="text-sm tabular-nums">
+                      <span className="font-semibold text-expense">{formatPeso(tracker.youOwe, { whole: true })}</span>
+                      <span className="text-muted-foreground"> you owe</span>
+                    </span>
+                  )}
+                </>
+              )}
+              <span className="text-sm text-muted-foreground">
+                {bills} {bills === 1 ? "bill" : "bills"}
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-auto flex items-center justify-between gap-3 border-t pt-3 text-sm">
+            <span className="flex -space-x-2">
+              {tracker.people.slice(0, 4).map((p) => (
+                <MemberAvatar key={p.id} name={p.name} className="size-7 text-[10px]" />
+              ))}
+              {tracker.people.length === 0 && (
+                <span className="flex items-center gap-1 text-muted-foreground">
+                  <Users className="size-3.5" /> No one added yet
+                </span>
+              )}
+            </span>
+            {tracker.target_date && <span className="text-muted-foreground">{formatDay(tracker.target_date, today)}</span>}
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
+
 function TrackerCard({ tracker, today }: { tracker: TrackerView; today: string }) {
+  return tracker.kind === "split" ? (
+    <SplitTrackerCard tracker={tracker} today={today} />
+  ) : (
+    <GoalTrackerCard tracker={tracker} today={today} />
+  );
+}
+
+function GoalTrackerCard({ tracker, today }: { tracker: GoalTrackerView; today: string }) {
   const percent = (tracker.total / tracker.target_amount) * 100;
   const remaining = tracker.target_amount - tracker.total;
   const perMonth = monthlyNeeded(remaining, tracker.target_date, today);
@@ -75,20 +141,29 @@ function TrackerCard({ tracker, today }: { tracker: TrackerView; today: string }
 export default function TrackersPage() {
   const data = useTrackers();
   const router = useRouter();
-  const [creating, setCreating] = useState(false);
+  // null = closed; "pick" = asking which kind
+  const [creating, setCreating] = useState<TrackerKind | "pick" | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
   const active = data?.trackers.filter((t) => !t.archived) ?? [];
   const archived = data?.trackers.filter((t) => t.archived) ?? [];
-  const saved = active.reduce((sum, t) => sum + t.total, 0);
+  const goals = active.filter((t) => t.kind === "goal");
+  const saved = goals.reduce((sum, t) => sum + t.total, 0);
+  const owedToYou = active.reduce((sum, t) => sum + (t.kind === "split" ? t.owedToYou : 0), 0);
+  const description = [
+    goals.length > 0 && `${formatPeso(saved, { whole: true })} saved across ${goals.length} ${goals.length === 1 ? "goal" : "goals"}`,
+    owedToYou > 0 && `${formatPeso(owedToYou, { whole: true })} owed to you`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <>
       <PageHeader
         title="Trackers"
-        description={active.length > 0 ? `${formatPeso(saved, { whole: true })} saved across ${active.length} ${active.length === 1 ? "goal" : "goals"}` : "Savings you share with a friend"}
+        description={description || "Save up together, or settle up after a night out"}
       >
-        <Button size="lg" onClick={() => setCreating(true)}>
+        <Button size="lg" onClick={() => setCreating("pick")}>
           <Plus /> New tracker
         </Button>
       </PageHeader>
@@ -107,10 +182,10 @@ export default function TrackersPage() {
             <div className="flex flex-col gap-1">
               <span className="text-lg font-semibold">No trackers yet</span>
               <span className="max-w-sm text-sm text-muted-foreground">
-                Pick something to save for, like a trip or a new phone, then invite a friend to save with you.
+                Save up for something with a friend, or split the bills after a night out and see who owes what.
               </span>
             </div>
-            <Button onClick={() => setCreating(true)}>
+            <Button onClick={() => setCreating("pick")}>
               <Plus /> Create your first tracker
             </Button>
           </CardContent>
@@ -138,13 +213,28 @@ export default function TrackersPage() {
         </div>
       )}
 
-      <Dialog open={creating} onOpenChange={setCreating}>
+      <Dialog open={!!creating} onOpenChange={(open) => setCreating(open ? "pick" : null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New tracker</DialogTitle>
-            <DialogDescription>What are you saving for?</DialogDescription>
+            <DialogTitle>
+              {creating === "split" ? "Settle up after an event" : creating === "goal" ? "Save up for something" : "New tracker"}
+            </DialogTitle>
+            <DialogDescription>
+              {creating === "split" ? "What was the event?" : creating === "goal" ? "What are you saving for?" : "What's it for?"}
+            </DialogDescription>
           </DialogHeader>
-          <TrackerForm onSaved={(id) => router.push(`/trackers/view?id=${id}`)} />
+          {creating === "pick" ? (
+            <TrackerKindPicker onPick={setCreating} />
+          ) : (
+            creating && (
+              <>
+                <TrackerForm key={creating} kind={creating} onSaved={(id) => router.push(`/trackers/view?id=${id}`)} />
+                <Button variant="ghost" className="self-start" onClick={() => setCreating("pick")}>
+                  <ArrowLeft /> Back
+                </Button>
+              </>
+            )
+          )}
         </DialogContent>
       </Dialog>
     </>

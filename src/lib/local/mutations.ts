@@ -3,7 +3,8 @@
 // offline) and sync.ts sends them to Supabase when it can.
 import { monthStart, today, type DateString } from "@/lib/dates";
 import { isColor, isIcon } from "@/lib/finance/category-style";
-import { OPENING_BALANCE, type AccountKind, type CategoryKind } from "@/lib/finance/types";
+import { personBalances, splitEvenly } from "@/lib/finance/splits";
+import { OPENING_BALANCE, type AccountKind, type CategoryKind, type TrackerKind } from "@/lib/finance/types";
 import { formatPeso, parseOptionalPeso, parsePeso } from "@/lib/money";
 import {
   db,
@@ -14,6 +15,8 @@ import {
   type BudgetRow,
   type CategoryRow,
   type PresetRow,
+  type SplitPersonRow,
+  type SplitShareRow,
   type SyncedTable,
   type TableRows,
   type TrackerRow,
@@ -181,7 +184,12 @@ export async function saveTransaction(input: TransactionInput): Promise<Result> 
 export async function deleteTransaction(transactionId: string): Promise<Result> {
   const existing = await db.transactions.get(transactionId);
   if (!existing || existing.deleted_at) return {};
-  await write([{ table: "transactions", row: { ...existing, deleted_at: nowIso() } }]);
+  // A split bill or payback takes its shares with it
+  const shares = live(await db.split_shares.where("transaction_id").equals(transactionId).toArray());
+  await write([
+    { table: "transactions", row: { ...existing, deleted_at: nowIso() } },
+    ...shares.map((share): Change => ({ table: "split_shares", row: { ...share, deleted_at: nowIso() } })),
+  ]);
   return {};
 }
 
@@ -377,20 +385,31 @@ async function limitChanges(budgetId: string, limits: { categoryId: string; amou
 // Trackers (Phase 7)
 // ---------------------------------------------------------------------------
 
-export type TrackerInput = { id?: string; name: string; target: string; targetDate: string };
+export type TrackerInput = {
+  id?: string;
+  /** Only for a new tracker; a tracker keeps its kind. Default goal. */
+  kind?: TrackerKind;
+  name: string;
+  /** Goals only */
+  target: string;
+  targetDate: string;
+};
 
 export async function saveTracker(input: TrackerInput): Promise<Result & { id?: string }> {
+  const existing = input.id ? await db.trackers.get(input.id) : undefined;
+  if (input.id && (!existing || existing.deleted_at)) return { error: "That tracker was removed." };
+  const kind: TrackerKind = existing ? (existing.kind ?? "goal") : (input.kind ?? "goal");
+  if (kind !== "goal" && kind !== "split") return { error: "Pick saving up or settling up." };
+
   const name = input.name.trim();
-  const target = parsePeso(input.target);
+  const target = kind === "goal" ? parsePeso(input.target) : null;
   if (!name) return { error: "Give the tracker a name." };
   if (name.length > 60) return { error: "Keep the name to 60 characters or fewer." };
-  if (target === null) return { error: "Enter a target, like 20000." };
+  if (kind === "goal" && target === null) return { error: "Enter a target, like 20000." };
   if (input.targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(input.targetDate)) return { error: "Pick a valid date." };
   const fields = { name, target_amount: target, target_date: input.targetDate || null };
 
-  if (input.id) {
-    const existing = await db.trackers.get(input.id);
-    if (!existing || existing.deleted_at) return { error: "That tracker was removed." };
+  if (existing) {
     await write([{ table: "trackers", row: { ...existing, ...fields } }]);
     return { id: existing.id };
   }
@@ -398,6 +417,7 @@ export async function saveTracker(input: TrackerInput): Promise<Result & { id?: 
   const user = await userId();
   const tracker: TrackerRow = {
     ...fields,
+    kind,
     id: id(),
     created_by: user,
     archived_at: null,
@@ -453,6 +473,7 @@ export async function saveTrackerEntry(input: TrackerEntryInput): Promise<Result
   if (!/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) return { error: "Pick a date." };
   if (note.length > 200) return { error: "Keep the note to 200 characters or fewer." };
   if (!(await myRole(input.trackerId))) return { error: "You're not a member of this tracker." };
+  if ((await db.trackers.get(input.trackerId))?.kind === "split") return { error: "Add a bill or a payback instead." };
 
   const all = live(await db.transactions.toArray());
   const existing = input.id ? all.find((t) => t.id === input.id) : undefined;
@@ -553,6 +574,240 @@ function trackerNet(transactions: TransactionRow[], trackerId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Settle-up trackers (v1.0.2). Shares: + they owe you, − you owe them (docs/erd.md).
+// ---------------------------------------------------------------------------
+
+/** The id that stands for you in a bill's participants and payer. */
+export const ME = "me";
+
+async function splitTracker(trackerId: string) {
+  const tracker = await db.trackers.get(trackerId);
+  if (!tracker || tracker.deleted_at || tracker.kind !== "split") return null;
+  if (tracker.archived_at || !(await myRole(trackerId))) return null;
+  return tracker;
+}
+
+async function peopleOf(trackerId: string) {
+  return live(await db.split_people.where("tracker_id").equals(trackerId).toArray());
+}
+
+async function balanceOf(trackerId: string, personId: string) {
+  const shares = live(await db.split_shares.where("tracker_id").equals(trackerId).toArray());
+  return personBalances(shares).get(personId) ?? 0;
+}
+
+export async function addSplitPerson(trackerId: string, name: string): Promise<Result & { id?: string }> {
+  name = name.trim();
+  if (!(await splitTracker(trackerId))) return { error: "You can't add people to this tracker." };
+  if (!name) return { error: "Enter a name." };
+  if (name.length > 40) return { error: "Keep the name to 40 characters or fewer." };
+  if (sameName(name, "me") || sameName(name, "you")) return { error: "You're already on the list. Use their name." };
+  if ((await peopleOf(trackerId)).some((p) => sameName(p.name, name))) return { error: `${name} is already on the list.` };
+
+  const person: SplitPersonRow = {
+    id: id(),
+    tracker_id: trackerId,
+    user_id: await userId(),
+    name,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    deleted_at: null,
+  };
+  await write([{ table: "split_people", row: person }]);
+  return { id: person.id };
+}
+
+export async function renameSplitPerson(personId: string, name: string): Promise<Result> {
+  name = name.trim();
+  const person = await db.split_people.get(personId);
+  if (!person || person.deleted_at) return { error: "That person was removed." };
+  if (!name) return { error: "Enter a name." };
+  if (name.length > 40) return { error: "Keep the name to 40 characters or fewer." };
+  if ((await peopleOf(person.tracker_id)).some((p) => p.id !== personId && sameName(p.name, name))) {
+    return { error: `${name} is already on the list.` };
+  }
+  await write([{ table: "split_people", row: { ...person, name } }]);
+  return {};
+}
+
+/** Only once you're square with them; their past bills stay in the history. */
+export async function removeSplitPerson(personId: string): Promise<Result> {
+  const person = await db.split_people.get(personId);
+  if (!person || person.deleted_at) return {};
+  const balance = await balanceOf(person.tracker_id, personId);
+  if (balance !== 0) return { error: `Settle up with ${person.name} first.` };
+  await write([{ table: "split_people", row: { ...person, deleted_at: nowIso() } }]);
+  return {};
+}
+
+export type SplitBillInput = {
+  trackerId: string;
+  note: string;
+  amount: string;
+  occurredOn: string;
+  /** The expense category your share counts toward */
+  categoryId: string;
+  /** ME or a person id */
+  paidBy: string;
+  /** The account you paid from; only when you paid */
+  accountId: string;
+  /** Who shares the bill: ME and/or person ids */
+  participants: string[];
+  mode: "equal" | "exact";
+  /** mode "exact": participant id → amount */
+  exact?: Record<string, string>;
+};
+
+/**
+ * Add a bill. You paid: an expense for the full amount, plus a share for everyone else (they owe
+ * you). A friend paid: just your share (you owe them), counted in your budget, no account change.
+ */
+export async function saveSplitBill(input: SplitBillInput): Promise<Result> {
+  const tracker = await splitTracker(input.trackerId);
+  if (!tracker) return { error: "You can't add bills to this tracker." };
+  const amount = parsePeso(input.amount);
+  const note = input.note.trim();
+  if (amount === null) return { error: "Enter the bill's total, like 1200." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) return { error: "Pick a date." };
+  if (!note) return { error: "Say what it was for, like Friday dinner." };
+  if (note.length > 200) return { error: "Keep the description to 200 characters or fewer." };
+  const category = await db.categories.get(input.categoryId);
+  if (!category || category.deleted_at || category.kind !== "expense") return { error: "Pick an expense category." };
+
+  const people = new Set((await peopleOf(tracker.id)).map((p) => p.id));
+  const isKnown = (who: string) => who === ME || people.has(who);
+  if (!isKnown(input.paidBy)) return { error: "Pick who paid." };
+  // You first, so any leftover centavo from an even split is yours, not a friend's
+  const participants = [...new Set(input.participants)].filter(isKnown).sort((a, b) => Number(b === ME) - Number(a === ME));
+  if (participants.length === 0) return { error: "Pick who's splitting the bill." };
+
+  let shares: number[];
+  if (input.mode === "exact") {
+    const parsed = participants.map((who) => parseOptionalPeso(input.exact?.[who] ?? ""));
+    if (parsed.some((n) => n === null)) return { error: "Check the amounts. Use numbers like 250." };
+    shares = parsed as number[];
+    const sum = shares.reduce((a, b) => a + b, 0);
+    if (sum !== amount) return { error: `The shares add up to ${formatPeso(sum)}, but the bill is ${formatPeso(amount)}.` };
+  } else {
+    shares = splitEvenly(amount, participants.length);
+  }
+  const shareOf = new Map(participants.map((who, i) => [who, shares[i]]));
+
+  const user = await userId();
+  const base = {
+    user_id: user,
+    tracker_id: tracker.id,
+    occurred_on: input.occurredOn,
+    note,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    deleted_at: null,
+  };
+
+  if (input.paidBy === ME) {
+    if (!input.accountId) return { error: "Pick the account you paid from." };
+    const owing = participants.filter((who) => who !== ME && shareOf.get(who)! > 0);
+    if (owing.length === 0) return { error: "Nobody else is in this bill. Add it as a normal expense instead." };
+
+    const expense: TransactionRow = {
+      ...base,
+      id: id(),
+      type: "expense",
+      amount,
+      account_id: input.accountId,
+      to_account_id: null,
+      category_id: category.id,
+      source: "manual",
+    };
+    await write([
+      { table: "transactions", row: expense },
+      ...owing.map((who): Change => ({
+        table: "split_shares",
+        row: { ...base, id: id(), person_id: who, transaction_id: expense.id, category_id: null, amount: shareOf.get(who)! },
+      })),
+    ]);
+    return {};
+  }
+
+  const mine = shareOf.get(ME) ?? 0;
+  if (mine === 0) return { error: "You're not part of this bill, so there's nothing for you to pay back." };
+  const share: SplitShareRow = { ...base, id: id(), person_id: input.paidBy, transaction_id: null, category_id: category.id, amount: -mine };
+  await write([{ table: "split_shares", row: share }]);
+  return {};
+}
+
+/** Remove a bill or payback: its transaction (if any) and all its shares. `entryId` is either. */
+export async function deleteSplitEntry(entryId: string): Promise<Result> {
+  if (await db.transactions.get(entryId)) return deleteTransaction(entryId);
+  const share = await db.split_shares.get(entryId);
+  if (!share || share.deleted_at) return {};
+  await write([{ table: "split_shares", row: { ...share, deleted_at: nowIso() } }]);
+  return {};
+}
+
+export type SettleInput = {
+  trackerId: string;
+  personId: string;
+  amount: string;
+  accountId: string;
+  occurredOn: string;
+};
+
+/** Record a payback. Which way the money goes follows who owes whom; never more than what's owed. */
+export async function settleUp(input: SettleInput): Promise<Result> {
+  const tracker = await splitTracker(input.trackerId);
+  if (!tracker) return { error: "You can't settle up on this tracker." };
+  const person = await db.split_people.get(input.personId);
+  if (!person || person.deleted_at || person.tracker_id !== tracker.id) return { error: "Pick who you're settling with." };
+  const amount = parsePeso(input.amount);
+  if (amount === null) return { error: "Enter an amount, like 250." };
+  if (!input.accountId) return { error: "Pick an account." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) return { error: "Pick a date." };
+
+  const balance = await balanceOf(tracker.id, person.id);
+  if (balance === 0) return { error: `You and ${person.name} are already square.` };
+  const owed = Math.abs(balance);
+  if (amount > owed) {
+    return { error: `That's more than the ${formatPeso(owed)} ${balance > 0 ? `${person.name} owes you` : `you owe ${person.name}`}.` };
+  }
+
+  const theyPay = balance > 0;
+  const note = theyPay ? `${person.name} paid you back` : `You paid ${person.name} back`;
+  const base = {
+    user_id: await userId(),
+    tracker_id: tracker.id,
+    occurred_on: input.occurredOn,
+    note,
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    deleted_at: null,
+  };
+  const payback: TransactionRow = {
+    ...base,
+    id: id(),
+    type: theyPay ? "settle_in" : "settle_out",
+    amount,
+    account_id: input.accountId,
+    to_account_id: null,
+    category_id: null,
+    source: "manual",
+  };
+  const share: SplitShareRow = {
+    ...base,
+    id: id(),
+    person_id: person.id,
+    transaction_id: payback.id,
+    category_id: null,
+    amount: theyPay ? -amount : amount,
+  };
+  await write([
+    { table: "transactions", row: payback },
+    { table: "split_shares", row: share },
+  ]);
+  return {};
+}
+
+// ---------------------------------------------------------------------------
 // Presets (Phase 8)
 // ---------------------------------------------------------------------------
 
@@ -578,6 +833,9 @@ export async function savePreset(input: PresetInput): Promise<Result> {
   if (!PRESET_TYPES.includes(type)) return { error: "Pick expense, income or tracker." };
   if (amount === null) return { error: "Enter an amount, like 50." };
   if (type === "contribution" && !input.trackerId) return { error: "Pick a tracker." };
+  if (type === "contribution" && (await db.trackers.get(input.trackerId))?.kind === "split") {
+    return { error: "Presets can only add to saving trackers." };
+  }
   if (type !== "contribution" && !input.categoryId) return { error: "Pick a category." };
 
   const fields = {

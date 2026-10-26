@@ -49,11 +49,13 @@ export const syncStatusStore = {
 
 let running: Promise<void> | null = null;
 let again = false;
+let stopped = false;
 let retryTimer: ReturnType<typeof setTimeout> | undefined;
 let retryCount = 0;
 
 /** Push then pull. Safe to call often: overlapping calls collapse into one follow-up run. */
 export function syncNow(): Promise<void> {
+  if (stopped) return Promise.resolve();
   if (running) {
     again = true;
     return running;
@@ -76,6 +78,18 @@ let debounce: ReturnType<typeof setTimeout> | undefined;
 export function scheduleSync(delayMs = 400) {
   clearTimeout(debounce);
   debounce = setTimeout(() => void syncNow(), delayMs);
+}
+
+/**
+ * For logout: no more syncs until the page reloads. Waits for a running one, so a pull that's
+ * still in flight can't write the user's rows back after the device is wiped.
+ */
+export async function stopSync() {
+  stopped = true;
+  again = false;
+  clearTimeout(debounce);
+  clearTimeout(retryTimer);
+  await running;
 }
 
 // Only one tab syncs at a time

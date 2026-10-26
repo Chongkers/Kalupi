@@ -8,27 +8,17 @@ import { Archive, ArchiveRestore, ArrowLeft, LogOut, Minus, Pencil, Plus, Share2
 import { PageHeader } from "@/components/page-header";
 import { EntryForm } from "@/components/trackers/entry-form";
 import { MemberAvatar, Milestones, ProgressRing } from "@/components/trackers/progress-ring";
+import { ConfirmButton } from "@/components/trackers/confirm-button";
+import { SplitTracker } from "@/components/trackers/split-tracker";
 import { TrackerForm } from "@/components/trackers/tracker-form";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { FieldError } from "@/components/ui/field";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDay } from "@/lib/dates";
 import { daysUntil, monthlyNeeded } from "@/lib/finance/trackers";
 import type { Transaction } from "@/lib/finance/types";
-import { useOverview, useTrackers, type TrackerView } from "@/lib/local/hooks";
+import { useOverview, useTrackers, type GoalTrackerView, type TrackerView } from "@/lib/local/hooks";
 import { deleteTransaction, leaveTracker, removeMember, setTrackerArchived } from "@/lib/local/mutations";
 import { createInviteLink, shareLink } from "@/lib/trackers/invites";
 import { formatPeso } from "@/lib/money";
@@ -56,76 +46,9 @@ function ShareButton({ tracker }: { tracker: TrackerView }) {
   );
 }
 
-/** Confirm, then run an action that returns { error }. */
-function ConfirmButton({
-  label,
-  icon,
-  title,
-  description,
-  confirm,
-  destructive,
-  action,
-  onDone,
-  size,
-}: {
-  label: string;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  confirm: string;
-  destructive?: boolean;
-  action: () => Promise<{ error?: string }>;
-  onDone?: () => void;
-  size?: "icon";
-}) {
-  const [error, setError] = useState<string>();
-  const [isPending, startTransition] = useTransition();
-  return (
-    <>
-      <AlertDialog>
-        <AlertDialogTrigger asChild>
-          <Button
-            variant={size ? "ghost" : "outline"}
-            size={size}
-            aria-label={size ? label : undefined}
-            disabled={isPending}
-            className={cn(destructive && !size && "border-destructive/40 text-destructive", destructive && size && "text-destructive")}
-          >
-            {icon}
-            {!size && label}
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{title}</AlertDialogTitle>
-            <AlertDialogDescription>{description}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              variant={destructive ? "destructive" : "default"}
-              onClick={() =>
-                startTransition(async () => {
-                  const result = await action();
-                  setError(result.error);
-                  if (result.error) toast.error(result.error);
-                  else onDone?.();
-                })
-              }
-            >
-              {confirm}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-      {error && !size && <FieldError>{error}</FieldError>}
-    </>
-  );
-}
-
 type EntryDialog = { type: "contribution" | "withdrawal"; initial?: Transaction } | null;
 
-function Tracker({ tracker, today }: { tracker: TrackerView; today: string }) {
+function GoalTracker({ tracker, today }: { tracker: GoalTrackerView; today: string }) {
   const overview = useOverview();
   const router = useRouter();
   const [entry, setEntry] = useState<EntryDialog>(null);
@@ -391,7 +314,11 @@ function TrackerPage() {
       </p>
     );
   }
-  return <Tracker tracker={tracker} today={data.today} />;
+  return tracker.kind === "split" ? (
+    <SplitTracker tracker={tracker} today={data.today} />
+  ) : (
+    <GoalTracker tracker={tracker} today={data.today} />
+  );
 }
 
 export default function TrackerViewPage() {

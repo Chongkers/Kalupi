@@ -16,9 +16,21 @@ Personal budget and savings tracker for two users. Next.js (App Router) + TypeSc
 
 Newest first. Each version that changes the database has a migration in [supabase/migrations/](supabase/migrations/); run it in the Supabase SQL Editor before deploying that version.
 
+### 1.0.2
+
+Migration: [20261028000000_v1_0_2_settle_up.sql](supabase/migrations/20261028000000_v1_0_2_settle_up.sql)
+
+- Settle-up trackers: a new tracker asks whether you're settling up after an event or saving up for something. Settle-up trackers list the friends (names you type in), the bills, and who owes what.
+- Add a bill: what it was for, amount, category, who paid, split equally or by exact amounts.
+- Settle up with someone, fully or partly, into or out of an account; copy or share a reminder ("You owe ₱250 for Boracay trip").
+- Budget, dashboard and history count only your share of a split bill. Paybacks move money in or out of an account but never count as income or spending.
+- Trackers page shows the total owed to you across settle-up trackers.
+- Login and sign-up screens have a new dark brand panel.
+- Fix: logging out no longer flashes the setup wizard, and sync can't download your data back onto the device after logout wipes it.
+
 ### 1.0.1
 
-Migration: [20261026000000_v1_0_1.sql](supabase/migrations/20261026000000_v1_0_1.sql)
+Migrations: [20261026000000_v1_0_1.sql](supabase/migrations/20261026000000_v1_0_1.sql), then [20261027000000_avatar_url_check.sql](supabase/migrations/20261027000000_avatar_url_check.sql)
 
 - Category icons and colors: pick them in Settings → Categories; categories you haven't styled get one guessed from their name. Accounts get an icon by type.
 - Profile pictures: add, change or remove one in Settings. It's shrunk on the phone before upload and shown in the account menu and on shared trackers.

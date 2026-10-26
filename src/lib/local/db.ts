@@ -1,7 +1,7 @@
 // The on-device copy of the user's data (IndexedDB via Dexie). Screens read from here,
 // writes land here first, and src/lib/local/sync.ts keeps it in step with Supabase.
 import Dexie, { type EntityTable } from "dexie";
-import type { AccountKind, CategoryKind, TransactionType } from "@/lib/finance/types";
+import type { AccountKind, CategoryKind, TrackerKind, TransactionType } from "@/lib/finance/types";
 
 // Columns every synced table has (docs/erd.md, Sync)
 type Synced = { updated_at: string; deleted_at: string | null };
@@ -74,7 +74,10 @@ export type PresetRow = Synced & {
 export type TrackerRow = Synced & {
   id: string;
   name: string;
-  target_amount: number;
+  /** Missing on rows cached before v1.0.2 = goal */
+  kind?: TrackerKind;
+  /** null for settle-up trackers */
+  target_amount: number | null;
   target_date: string | null;
   created_by: string | null;
   archived_at: string | null;
@@ -88,6 +91,33 @@ export type TrackerMemberRow = Synced & {
   joined_at: string;
 };
 
+/** Someone on a settle-up tracker. Just a name; they don't need a Kalupi account. */
+export type SplitPersonRow = Synced & {
+  id: string;
+  tracker_id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+};
+
+/**
+ * What one person owes you (amount > 0) or you owe them (amount < 0), in centavos.
+ * Linked to your expense when you paid the bill, or to the settle_in / settle_out payback.
+ * A bill a friend paid has no transaction, and carries the category your share counts toward.
+ */
+export type SplitShareRow = Synced & {
+  id: string;
+  user_id: string;
+  tracker_id: string;
+  person_id: string;
+  transaction_id: string | null;
+  category_id: string | null;
+  amount: number;
+  occurred_on: string;
+  note: string | null;
+  created_at: string;
+};
+
 export type TableRows = {
   accounts: AccountRow;
   categories: CategoryRow;
@@ -97,6 +127,8 @@ export type TableRows = {
   presets: PresetRow;
   trackers: TrackerRow;
   tracker_members: TrackerMemberRow;
+  split_people: SplitPersonRow;
+  split_shares: SplitShareRow;
 };
 
 export type SyncedTable = keyof TableRows;
@@ -107,9 +139,11 @@ export const SYNCED_TABLES: SyncedTable[] = [
   "categories",
   "trackers",
   "tracker_members",
+  "split_people",
   "budgets",
   "budget_items",
   "transactions",
+  "split_shares",
   "presets",
 ];
 
@@ -145,6 +179,8 @@ class KalupiDB extends Dexie {
   presets!: EntityTable<PresetRow, "id">;
   trackers!: EntityTable<TrackerRow, "id">;
   tracker_members!: Dexie.Table<TrackerMemberRow, [string, string]>;
+  split_people!: EntityTable<SplitPersonRow, "id">;
+  split_shares!: EntityTable<SplitShareRow, "id">;
   outbox!: EntityTable<OutboxEntry, "seq">;
   meta!: EntityTable<MetaEntry, "key">;
 
@@ -162,6 +198,11 @@ class KalupiDB extends Dexie {
       tracker_members: "[tracker_id+user_id], tracker_id",
       outbox: "++seq, key",
       meta: "key",
+    });
+    // v1.0.2: settle-up trackers
+    this.version(2).stores({
+      split_people: "id, tracker_id",
+      split_shares: "id, tracker_id, transaction_id",
     });
   }
 }

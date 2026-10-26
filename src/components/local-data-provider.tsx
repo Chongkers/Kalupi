@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CloudOff, RefreshCw } from "lucide-react";
+import { loggingOutStore } from "@/components/app-shell/logout";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { clearLocalData, db, getMeta, setMeta } from "@/lib/local/db";
@@ -108,9 +109,10 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     };
   }, [phase]);
 
+  const loggingOut = useSyncExternalStore(loggingOutStore.subscribe, loggingOutStore.get, () => false);
   const accountCount = useLiveQuery(() => db.accounts.filter((a) => !a.deleted_at).count(), [], -1);
   // Before setup, every page sends you to the dashboard, where the startup wizard opens
-  const wrongPlace = phase === "ready" && accountCount === 0 && pathname !== "/";
+  const wrongPlace = phase === "ready" && !loggingOut && accountCount === 0 && pathname !== "/";
 
   useEffect(() => {
     if (wrongPlace) router.replace("/");
@@ -138,7 +140,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (phase === "loading" || accountCount < 0 || wrongPlace) {
+  if (phase === "loading" || loggingOut || accountCount < 0 || wrongPlace) {
     return (
       <div className="flex flex-col gap-4">
         <Skeleton className="h-10 w-48" />

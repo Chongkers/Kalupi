@@ -3,19 +3,28 @@
 import "fake-indexeddb/auto";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearLocalData, db, setMeta, type CategoryRow, type SyncedTable } from "./db";
+import { accountBalances } from "@/lib/finance/balances";
+import { personBalances, spendingView } from "@/lib/finance/splits";
 import {
+  addSplitPerson,
   completeSetup,
+  deleteSplitEntry,
+  deleteTransaction,
   ensureMonthBudget,
   leaveTracker,
   logPreset,
+  ME as YOU,
   removeMember,
+  removeSplitPerson,
   saveBudget,
+  saveSplitBill,
   savePreset,
   saveTracker,
   saveTrackerEntry,
   saveTransaction,
   setCategoryStyle,
   setPresetArchived,
+  settleUp,
 } from "./mutations";
 
 vi.mock("./sync", () => ({ scheduleSync: vi.fn() }));
@@ -328,5 +337,119 @@ describe("setCategoryStyle", () => {
     expect((await setCategoryStyle("food", "rocket", null)).error).toMatch(/icons/);
     expect((await setCategoryStyle("food", null, "teal")).error).toMatch(/colors/);
     expect(await db.outbox.count()).toBe(0);
+  });
+});
+
+describe("settle-up trackers (v1.0.2)", () => {
+  const live = async () => ({
+    transactions: (await db.transactions.toArray()).filter((t) => !t.deleted_at),
+    shares: (await db.split_shares.toArray()).filter((s) => !s.deleted_at),
+  });
+
+  async function setup() {
+    const { id } = await saveTracker({ kind: "split", name: "Boracay trip", target: "", targetDate: "" });
+    const enzo = (await addSplitPerson(id!, "Enzo")).id!;
+    const law = (await addSplitPerson(id!, "Lawrence")).id!;
+    const bill = { trackerId: id!, note: "Dinner", amount: "1000", occurredOn: "2026-10-24", categoryId: "food", accountId: "cash" };
+    return { trackerId: id!, enzo, law, bill };
+  }
+
+  it("creates a settle-up tracker with no target", async () => {
+    const { trackerId } = await setup();
+    expect(await db.trackers.get(trackerId)).toMatchObject({ kind: "split", target_amount: null });
+    expect(await saveTracker({ kind: "goal", name: "Phone", target: "", targetDate: "" })).toEqual({ error: expect.stringMatching(/target/) });
+  });
+
+  it("you paid: full amount leaves the account, friends owe their share, budget counts yours", async () => {
+    const { enzo, law, bill } = await setup();
+    expect(await saveSplitBill({ ...bill, paidBy: YOU, participants: [YOU, enzo, law, "nobody"], mode: "equal" })).toEqual({});
+
+    const { transactions, shares } = await live();
+    expect(transactions).toEqual([expect.objectContaining({ type: "expense", amount: 100000, tracker_id: bill.trackerId })]);
+    // ₱1,000 / 3: you take the leftover centavo
+    const balances = personBalances(shares);
+    expect(balances.get(enzo)).toBe(33333);
+    expect(balances.get(law)).toBe(33333);
+    expect(accountBalances(transactions).get("cash")).toBe(-100000);
+    expect(spendingView(transactions, shares)[0].amount).toBe(33334);
+    expect(await queued()).toEqual(["trackers", "split_people", "split_people", "transactions", "split_shares", "split_shares"]);
+  });
+
+  it("a friend paid: only your share is recorded, against the budget, with no account change", async () => {
+    const { enzo, law, bill } = await setup();
+    await saveSplitBill({ ...bill, paidBy: enzo, participants: [YOU, enzo, law], mode: "exact", exact: { [YOU]: "400", [enzo]: "300", [law]: "300" } });
+
+    const { transactions, shares } = await live();
+    expect(transactions).toEqual([]);
+    expect(shares).toEqual([expect.objectContaining({ person_id: enzo, amount: -40000, category_id: "food", transaction_id: null })]);
+    expect(spendingView(transactions, shares)).toEqual([expect.objectContaining({ type: "expense", amount: 40000, category_id: "food" })]);
+  });
+
+  it("rejects bills that don't add up or don't involve anyone else", async () => {
+    const { enzo, bill } = await setup();
+    expect((await saveSplitBill({ ...bill, paidBy: YOU, participants: [YOU, enzo], mode: "exact", exact: { [YOU]: "500", [enzo]: "400" } })).error).toMatch(
+      /add up to ₱900/,
+    );
+    expect((await saveSplitBill({ ...bill, paidBy: YOU, participants: [YOU], mode: "equal" })).error).toMatch(/normal expense/);
+    expect((await saveSplitBill({ ...bill, paidBy: enzo, participants: [enzo], mode: "equal" })).error).toMatch(/not part of this bill/);
+    expect(await db.outbox.where("key").anyOf((await db.split_shares.toArray()).map((s) => s.id)).count()).toBe(0);
+  });
+
+  it("settles up partly then fully, money in without counting as income", async () => {
+    const { enzo, law, bill } = await setup();
+    await saveSplitBill({ ...bill, paidBy: YOU, participants: [YOU, enzo, law], mode: "equal" });
+    const settle = { trackerId: bill.trackerId, personId: enzo, accountId: "cash", occurredOn: "2026-10-25" };
+
+    expect((await settleUp({ ...settle, amount: "400" })).error).toMatch(/more than the ₱333.33 Enzo owes you/);
+    expect(await settleUp({ ...settle, amount: "200" })).toEqual({});
+    expect(await settleUp({ ...settle, amount: "133.33" })).toEqual({});
+    expect((await settleUp({ ...settle, amount: "1" })).error).toMatch(/already square/);
+
+    const { transactions, shares } = await live();
+    expect(personBalances(shares).get(enzo)).toBe(0);
+    expect(transactions.filter((t) => t.type === "settle_in").map((t) => t.amount).sort()).toEqual([13333, 20000]);
+    expect(accountBalances(transactions).get("cash")).toBe(-100000 + 33333);
+    expect(spendingView(transactions, shares).filter((t) => t.type === "income")).toEqual([]);
+  });
+
+  it("you owe a friend: paying them back takes money out of the account", async () => {
+    const { enzo, bill } = await setup();
+    await saveSplitBill({ ...bill, paidBy: enzo, participants: [YOU, enzo], mode: "equal" });
+    expect(await settleUp({ trackerId: bill.trackerId, personId: enzo, amount: "500", accountId: "cash", occurredOn: "2026-10-25" })).toEqual({});
+
+    const { transactions, shares } = await live();
+    expect(transactions).toEqual([expect.objectContaining({ type: "settle_out", amount: 50000, note: "You paid Enzo back" })]);
+    expect(personBalances(shares).get(enzo)).toBe(0);
+    expect(accountBalances(transactions).get("cash")).toBe(-50000);
+  });
+
+  it("deleting a bill removes its shares too, from the tracker or the transactions list", async () => {
+    const { enzo, law, bill } = await setup();
+    await saveSplitBill({ ...bill, paidBy: YOU, participants: [YOU, enzo, law], mode: "equal" });
+    const [expense] = (await live()).transactions;
+    await deleteTransaction(expense.id);
+    expect((await live()).shares).toEqual([]);
+
+    await saveSplitBill({ ...bill, paidBy: enzo, participants: [YOU, enzo], mode: "equal" });
+    const [share] = (await live()).shares;
+    await deleteSplitEntry(share.id);
+    expect((await live()).shares).toEqual([]);
+  });
+
+  it("people: no duplicates, and only removed once settled", async () => {
+    const { trackerId, enzo, bill } = await setup();
+    expect((await addSplitPerson(trackerId, " enzo ")).error).toMatch(/already on the list/);
+    await saveSplitBill({ ...bill, paidBy: YOU, participants: [YOU, enzo], mode: "equal" });
+    expect((await removeSplitPerson(enzo)).error).toMatch(/Settle up with Enzo first/);
+  });
+
+  it("settle-up trackers don't take contributions or presets", async () => {
+    const { trackerId } = await setup();
+    expect(
+      (await saveTrackerEntry({ trackerId, type: "contribution", amount: "100", accountId: "cash", occurredOn: "2026-10-25", note: "" })).error,
+    ).toMatch(/bill or a payback/);
+    expect((await savePreset({ name: "Trip", type: "contribution", amount: "100", accountId: "", categoryId: "", trackerId })).error).toMatch(
+      /saving trackers/,
+    );
   });
 });

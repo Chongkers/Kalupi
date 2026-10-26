@@ -5,6 +5,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { monthEnd, monthStart, today, type DateString } from "@/lib/dates";
 import { accountBalances, availableBalance } from "@/lib/finance/balances";
 import { summarizeBudget } from "@/lib/finance/budget";
+import { owedTotals, personBalances, spendingView, splitEntries } from "@/lib/finance/splits";
 import { trackerMembers, type ProgressRow } from "@/lib/finance/trackers";
 import { OPENING_BALANCE, type Account, type Category, type Transaction } from "@/lib/finance/types";
 import { db, getMeta } from "./db";
@@ -21,12 +22,13 @@ export function useOverview() {
   return useLiveQuery(async () => {
     const now = today();
     const month = monthStart(now);
-    const [accountRows, categoryRows, transactionRows, budgets, presetRows] = await Promise.all([
+    const [accountRows, categoryRows, transactionRows, budgets, presetRows, shareRows] = await Promise.all([
       db.accounts.toArray(),
       db.categories.toArray(),
       db.transactions.toArray(),
       db.budgets.toArray(),
       db.presets.toArray(),
+      db.split_shares.toArray(),
     ]);
 
     const accounts: Account[] = live(accountRows).sort((a, b) => a.created_at.localeCompare(b.created_at));
@@ -44,6 +46,9 @@ export function useOverview() {
     const balances = accountBalances(transactions);
     const end = monthEnd(now);
     const monthTransactions = transactions.filter((t) => t.occurred_on >= month && t.occurred_on <= end);
+    // Budget and in/out totals count your share of split bills only (v1.0.2)
+    const spending = spendingView(transactions, live(shareRows));
+    const monthSpending = spending.filter((t) => t.occurred_on >= month && t.occurred_on <= end);
 
     return {
       today: now,
@@ -52,9 +57,12 @@ export function useOverview() {
       openingBalanceId: categories.find((c) => c.kind === "income" && c.name === OPENING_BALANCE)?.id,
       transactions,
       monthTransactions,
+      /** Transactions as the budget sees them; not for balances or lists */
+      spending,
+      monthSpending,
       available: availableBalance(transactions),
       monthBudget,
-      budget: monthBudget ? summarizeBudget(monthBudget.items, categories, monthTransactions, monthBudget.totalLimit) : null,
+      budget: monthBudget ? summarizeBudget(monthBudget.items, categories, monthSpending, monthBudget.totalLimit) : null,
       presets: live(presetRows).sort((a, b) => a.name.localeCompare(b.name)),
     };
   });
@@ -87,21 +95,26 @@ export function useSyncStatus() {
 export function useMonth(month: DateString) {
   return useLiveQuery(async () => {
     const end = monthEnd(month);
-    const [transactionRows, budgets, categoryRows] = await Promise.all([
+    const [transactionRows, budgets, categoryRows, shareRows] = await Promise.all([
       db.transactions.where("occurred_on").between(month, end, true, true).toArray(),
       db.budgets.toArray(),
       db.categories.toArray(),
+      db.split_shares.toArray(),
     ]);
     const categories: Category[] = live(categoryRows).sort((a, b) => a.name.localeCompare(b.name));
     const transactions: Transaction[] = live(transactionRows);
+    const monthShares = live(shareRows).filter((s) => s.occurred_on >= month && s.occurred_on <= end);
+    const spending = spendingView(transactions, monthShares);
     const budgetRow = budgets.find((b) => b.month === month && !b.deleted_at);
     const items = budgetRow ? live(await db.budget_items.where("budget_id").equals(budgetRow.id).toArray()) : [];
     return {
       month,
       transactions,
+      /** As the budget sees them: your share of split bills only */
+      spending,
       categories,
       budgetRow: budgetRow ? { id: budgetRow.id, items, totalLimit: budgetRow.total_limit ?? null } : null,
-      budget: budgetRow ? summarizeBudget(items, categories, transactions, budgetRow.total_limit) : null,
+      budget: budgetRow ? summarizeBudget(items, categories, spending, budgetRow.total_limit) : null,
     };
   }, [month]);
 }
@@ -111,30 +124,54 @@ export function useTrackers() {
   return useLiveQuery(async () => {
     const owner = await getMeta<{ userId: string }>("owner");
     const me = owner?.userId ?? "";
-    const [trackerRows, memberRows, transactionRows, progress] = await Promise.all([
+    const [trackerRows, memberRows, transactionRows, progress, peopleRows, shareRows] = await Promise.all([
       db.trackers.toArray(),
       db.tracker_members.toArray(),
       db.transactions.toArray(),
       getMeta<ProgressRow[]>("trackerProgress"),
+      db.split_people.toArray(),
+      db.split_shares.toArray(),
     ]);
     const members = live(memberRows);
     const mine = new Map(members.filter((m) => m.user_id === me).map((m) => [m.tracker_id, m.role]));
     const entries = live(transactionRows).filter((t) => t.tracker_id && t.user_id === me);
+    const shares = live(shareRows);
 
     const trackers = live(trackerRows)
       .filter((t) => mine.has(t.id))
       .sort((a, b) => a.created_at.localeCompare(b.created_at))
       .map((t) => {
+        const common = { ...t, archived: !!t.archived_at, myRole: mine.get(t.id)! };
+        const myEntries = entries
+          .filter((e) => e.tracker_id === t.id)
+          .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on) || b.created_at.localeCompare(a.created_at));
+
+        if (t.kind === "split") {
+          const trackerShares = shares.filter((s) => s.tracker_id === t.id);
+          const balances = personBalances(trackerShares);
+          // Removed people keep their name on past bills
+          const everyone = peopleRows.filter((p) => p.tracker_id === t.id);
+          const people = live(everyone)
+            .sort((a, b) => a.created_at.localeCompare(b.created_at))
+            .map((p) => ({ id: p.id, name: p.name, balance: balances.get(p.id) ?? 0 }));
+          return {
+            ...common,
+            kind: "split" as const,
+            people,
+            names: new Map(everyone.map((p) => [p.id, p.name])),
+            ...owedTotals(people.map((p) => p.balance)),
+            entries: splitEntries(trackerShares, myEntries),
+          };
+        }
+
         const { members: people, total } = trackerMembers(t.id, me, members, progress ?? [], entries);
         return {
-          ...t,
-          archived: !!t.archived_at,
-          myRole: mine.get(t.id)!,
+          ...common,
+          kind: "goal" as const,
+          target_amount: t.target_amount ?? 0,
           members: people,
           total,
-          myEntries: entries
-            .filter((e) => e.tracker_id === t.id)
-            .sort((a, b) => b.occurred_on.localeCompare(a.occurred_on) || b.created_at.localeCompare(a.created_at)),
+          myEntries,
         };
       });
     return { me, today: today(), trackers };
@@ -142,3 +179,5 @@ export function useTrackers() {
 }
 
 export type TrackerView = NonNullable<ReturnType<typeof useTrackers>>["trackers"][number];
+export type GoalTrackerView = Extract<TrackerView, { kind: "goal" }>;
+export type SplitTrackerView = Extract<TrackerView, { kind: "split" }>;

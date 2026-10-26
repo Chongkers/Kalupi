@@ -122,6 +122,30 @@
 - [ ] One shared tracker shows both people's contributions
 - [ ] A bank screenshot fills in the amount correctly most of the time
 
+## Version 1.0.2: Settle-up trackers
+
+**Goal:** after a night out where you paid for everyone (or a friend paid for you), see who owes what and log it when they pay you back. Friends don't need the app.
+
+A new tracker asks: **settling up after an event**, or **saving up for something**? Saving trackers work as before. Settle-up trackers are personal for now (no invites); friends are names you type in.
+
+**Money rules** (details in [erd.md](erd.md)):
+- You paid a ₱1,000 bill split four ways: your account goes down ₱1,000, your budget counts only your ₱250, and ₱750 is owed to you.
+- A friend paid and your share is ₱250: your budget counts ₱250 and you owe them ₱250. No account changes until you pay them back.
+- Paybacks (`settle_in`, `settle_out`) move money in or out of an account but are never income or spending.
+
+- [ ] Run migration `20261028000000_v1_0_2_settle_up.sql` in Supabase (before deploying)
+- [x] Tracker kind (`goal` | `split`); settle-up trackers have no target and can't be shared yet
+- [x] People on a settle-up tracker: add, rename, remove (once settled)
+- [x] Add a bill: what for, amount, category, who paid, split equally or by exact amounts
+- [x] Balances: total owed to you and that you owe, per person
+- [x] Settle up with someone, fully or partly, into or out of an account
+- [x] Copy or share a reminder message ("You owe ₱250 for Boracay trip")
+- [x] Budget, dashboard and history count your share of split bills, not the full amount
+- [x] Tests for the split math and the mutations
+- [ ] Test: a real night out with friends, settle everyone, check balances and budget
+
+**Later (1.1):** shared settle-up trackers. Link a name to a Kalupi account via the invite link, everyone in the group sees the bills, either side can record a payment, and debts are simplified (A→B→C becomes A→C).
+
 ## After the MVP
 
 - Push notifications (over budget, friend contributed)

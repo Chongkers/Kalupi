@@ -89,16 +89,16 @@ function Report({ month, overview }: { month: DateString; overview: Overview }) 
   const [editingBudget, setEditingBudget] = useState(false);
   if (!data) return <Skeleton className="h-96 w-full" />;
 
-  const { transactions, categories, budget, budgetRow } = data;
+  const { transactions, spending, categories, budget, budgetRow } = data;
   const openingId = categories.find((c) => c.kind === "income" && c.name === OPENING_BALANCE)?.id;
-  const { moneyIn, moneyOut } = inAndOut(transactions, openingId);
+  const { moneyIn, moneyOut } = inAndOut(spending, openingId);
   const net = moneyIn - moneyOut;
   const savedRate = moneyIn > 0 ? Math.round((net / moneyIn) * 100) : null;
   const isCurrent = month === monthStart(overview.today);
 
   const names = new Map(categories.map((c) => [c.id, c.name]));
   const byId = new Map(categories.map((c) => [c.id, c]));
-  const byCategory = [...spentByCategory(transactions)].map(([id, amount]) => ({ id, name: names.get(id) ?? "Unknown", amount }));
+  const byCategory = [...spentByCategory(spending)].map(([id, amount]) => ({ id, name: names.get(id) ?? "Unknown", amount }));
   byCategory.sort((a, b) => b.amount - a.amount);
   const biggest = byCategory[0]?.amount ?? 1;
 

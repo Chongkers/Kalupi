@@ -4,7 +4,10 @@ import type { DateString } from "@/lib/dates";
 
 export type AccountKind = "cash" | "bank" | "ewallet";
 export type CategoryKind = "income" | "expense";
-export type TransactionType = "income" | "expense" | "contribution" | "withdrawal" | "transfer";
+/** settle_in / settle_out: a friend paid you back, or you paid them back (v1.0.2). Not income or spending. */
+export type TransactionType = "income" | "expense" | "contribution" | "withdrawal" | "transfer" | "settle_in" | "settle_out";
+/** goal = saving up toward a target; split = settling up after an event (v1.0.2) */
+export type TrackerKind = "goal" | "split";
 
 export type Account = {
   id: string;

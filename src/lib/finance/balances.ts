@@ -3,7 +3,7 @@ import type { Transaction } from "./types";
 
 type BalanceInput = Pick<Transaction, "type" | "amount" | "account_id" | "to_account_id">;
 
-/** Account id → balance in centavos: income − expense + transfers in − transfers out. */
+/** Account id → balance in centavos: income − expense + transfers in − transfers out ± paybacks. */
 export function accountBalances(transactions: BalanceInput[]): Map<string, number> {
   const balances = new Map<string, number>();
   const add = (accountId: string, delta: number) => balances.set(accountId, (balances.get(accountId) ?? 0) + delta);
@@ -13,7 +13,12 @@ export function accountBalances(transactions: BalanceInput[]): Map<string, numbe
       case "income":
         add(t.account_id, t.amount);
         break;
+      // A friend paying you back puts money in; paying a friend back takes it out
+      case "settle_in":
+        add(t.account_id, t.amount);
+        break;
       case "expense":
+      case "settle_out":
         add(t.account_id, -t.amount);
         break;
       case "transfer":

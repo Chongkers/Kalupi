@@ -6,8 +6,10 @@ In Supabase → SQL Editor, run each migration once, in order:
 
 1. `supabase/migrations/20261024000000_trackers_presets_launch.sql`: custom monthly limit, preset archiving, invite preview, keep-alive `ping()`.
 2. `supabase/migrations/20261026000000_v1_0_1.sql` (v1.0.1): category icons and colors, profile pictures (creates the `avatars` storage bucket).
+3. `supabase/migrations/20261027000000_avatar_url_check.sql` (v1.0.1 fix): profile pictures can only link to the user's own file.
+4. `supabase/migrations/20261028000000_v1_0_2_settle_up.sql` (v1.0.2): settle-up trackers, split people and shares, payback entry types.
 
-Run them before using the new screens: until they're in, the server refuses the new kinds of changes (budgets, presets, category icons, pictures).
+Run them before using the new screens: until they're in, the server refuses the new kinds of changes (budgets, presets, category icons, pictures, settle-up trackers).
 
 ## 2. Vercel
 
