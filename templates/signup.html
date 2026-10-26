@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CashCount System - Register</title>
+  <script>
+    if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.css" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              darkest: '#004d00',
+              primary: '#007a33',
+              sage: '#66b3a1',
+              mint: '#b2e0d4',
+              ice: '#e0f7f1',
+              darkbg: '#071811',
+              darkcard: '#0d241a',
+              darkborder: '#163829'
+            },
+            primary: {
+              "50":"#e0f7f1","100":"#cbf0e6","200":"#b2e0d4","300":"#8cc9ba",
+              "400":"#66b3a1","500":"#2d9175","600":"#007a33","700":"#00662a",
+              "800":"#004d00","900":"#003600","950":"#002000"
+            }
+          }
+        }
+      }
+    }
+
+    function toggleTheme() {
+      const isDark = document.documentElement.classList.contains('dark');
+      if (isDark) {
+        document.documentElement.classList.remove('dark');
+        localStorage.setItem('color-theme', 'light');
+      } else {
+        document.documentElement.classList.add('dark');
+        localStorage.setItem('color-theme', 'dark');
+      }
+      syncThemeIcons();
+    }
+
+    function syncThemeIcons() {
+      const isDark = document.documentElement.classList.contains('dark');
+      document.querySelectorAll('.theme-toggle-dark-icon').forEach(icon => {
+        icon.classList.toggle('hidden', !isDark);
+      });
+      document.querySelectorAll('.theme-toggle-light-icon').forEach(icon => {
+        icon.classList.toggle('hidden', isDark);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', syncThemeIcons);
+  </script>
+</head>
+
+<body class="bg-[#f4fbf8] dark:bg-[#071811] min-h-screen text-gray-900 dark:text-slate-100 transition-colors duration-200">
+
+  <section class="min-h-screen flex flex-col justify-center items-center px-6 py-8 relative">
+    <!-- Theme Toggle in top right -->
+    <div class="absolute top-4 right-4">
+      <button id="themeToggleBtn" type="button" onclick="toggleTheme()"
+              class="text-gray-600 dark:text-gray-300 hover:bg-[#e0f7f1] dark:hover:bg-[#133325] hover:text-[#007a33] dark:hover:text-[#b2e0d4] p-2.5 rounded-xl border border-gray-200 dark:border-[#163829] transition shadow-sm bg-white dark:bg-[#0d241a]"
+              title="Toggle Light / Dark Mode" aria-label="Toggle theme">
+        <svg class="w-5 h-5 theme-toggle-light-icon" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+        </svg>
+        <svg class="w-5 h-5 hidden theme-toggle-dark-icon text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+        </svg>
+      </button>
+    </div>
+
+    <div class="flex flex-col items-center justify-center w-full mx-auto">
+      <a href="#" class="flex items-center mb-6 space-x-3 group">
+        <div class="p-2.5 rounded-xl text-[#007a33] dark:text-[#66b3a1] shadow-sm border border-[#b2e0d4] dark:border-[#163829] transition group-hover:scale-105"
+             style="background-color: #e0f7f1; color: #007a33;">
+          <svg class="w-6 h-6" fill="none" stroke="#007a33" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+        </div>
+        <div class="flex flex-col">
+          <span class="text-2xl font-black text-[#004d00] dark:text-white tracking-tight">CashCount</span>
+          <span class="text-xs text-[#007a33] dark:text-[#66b3a1] font-semibold -mt-0.5 tracking-wide">Personal Finance & Budget</span>
+        </div>
+      </a>
+
+      <div class="w-full bg-white rounded-2xl shadow-xl border border-[#b2e0d4]/80 sm:max-w-md xl:p-0 dark:bg-[#0d241a] dark:border-[#163829] transition-colors duration-200">
+        <div class="p-6 space-y-4 md:space-y-6 sm:p-8">
+          <h1 class="text-xl font-black leading-tight tracking-tight text-[#004d00] md:text-2xl dark:text-white">
+            Welcome to CashCount!
+          </h1>
+
+          <!-- Error Message -->
+          <div th:if="${errorMessage}" class="flex items-center p-3 text-sm text-red-800 border border-red-300 rounded-xl bg-red-50 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800" role="alert">
+            <svg class="flex-shrink-0 inline w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"></path></svg>
+            <span th:text="${errorMessage}">Error</span>
+          </div>
+
+          <form class="space-y-4 md:space-y-6" action="login.html" th:action="@{/signup}" method="post">
+            <div>
+              <label for="email" class="block mb-2 text-sm font-semibold text-gray-900 dark:text-white">Your email</label>
+              <input type="email" name="email" id="email"
+                th:value="${lastEmail}"
+                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-[#007a33] focus:border-[#007a33] block w-full p-2.5 dark:bg-[#091b13] dark:border-[#163829] dark:placeholder-gray-400 dark:text-white dark:focus:ring-[#66b3a1] dark:focus:border-[#66b3a1]"
+                placeholder="name@company.com" required="">
+            </div>
+            <div>
+              <label for="password" class="block mb-2 text-sm font-semibold text-gray-900 dark:text-white">Password</label>
+              <input type="password" name="password" id="password" placeholder="••••••••"
+                class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-[#007a33] focus:border-[#007a33] block w-full p-2.5 dark:bg-[#091b13] dark:border-[#163829] dark:placeholder-gray-400 dark:text-white dark:focus:ring-[#66b3a1] dark:focus:border-[#66b3a1]"
+                required="">
+            </div>
+            <button type="submit"
+              class="w-full text-white bg-[#007a33] hover:bg-[#00662a] focus:ring-4 focus:outline-none focus:ring-[#66b3a1]/40 font-bold rounded-xl text-sm px-5 py-2.5 text-center dark:bg-[#007a33] dark:hover:bg-[#00662a] dark:focus:ring-[#007a33]/60 transition shadow-md shadow-[#007a33]/25">
+              Register
+            </button>
+            <p class="text-sm font-light text-gray-500 dark:text-gray-400">
+              I already have an account. <a href="login.html" th:href="@{/login}"
+                class="font-semibold text-[#007a33] hover:underline dark:text-[#66b3a1]">Return</a>
+            </p>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/flowbite/2.3.0/flowbite.min.js"></script>
+</body>
+
+</html>

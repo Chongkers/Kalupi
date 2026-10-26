@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CashCount System - Dashboard</title>
+    <script>
+        if (localStorage.getItem('color-theme') === 'dark' || (!('color-theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.css" rel="stylesheet" />
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            darkest: '#004d00',
+                            primary: '#007a33',
+                            sage: '#66b3a1',
+                            mint: '#b2e0d4',
+                            ice: '#e0f7f1',
+                            darkbg: '#071811',
+                            darkcard: '#0d241a',
+                            darkborder: '#163829'
+                        },
+                        primary: {
+                            "50":"#e0f7f1","100":"#cbf0e6","200":"#b2e0d4","300":"#8cc9ba",
+                            "400":"#66b3a1","500":"#2d9175","600":"#007a33","700":"#00662a",
+                            "800":"#004d00","900":"#003600","950":"#002000"
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-[#f4fbf8] dark:bg-[#071811] min-h-screen text-gray-900 dark:text-slate-100 antialiased font-sans transition-colors duration-200">
+
+    <!-- Navbar -->
+    <div id="navbar-slot" th:replace="~{components/navbar :: navbar}"></div>
+
+    <!-- Notification data passed from Thymeleaf to JS for modal display -->
+    <script th:inline="javascript">
+        window.__NOTIFICATIONS__ = {
+            successMessage:  /*[[${successMessage}]]*/  null,
+            errorMessage:    /*[[${errorMessage}]]*/    null,
+            totalBalance:    /*[[${totalBalanceRaw}]]*/ 0,
+            budgetPercent:   /*[[${budgetPercent}]]*/   0,
+            totalExpense:    /*[[${totalExpense}]]*/    '0.00',
+            budgetLimit:     /*[[${budgetLimit}]]*/     '0.00',
+            lastTxType:      /*[[${lastTxType}]]*/      null,
+            lastTxAmount:    /*[[${lastTxAmount}]]*/    null,
+            showLowBalance:  /*[[${showLowBalance}]]*/  false,
+            showOverBudget:  /*[[${showOverBudget}]]*/  false,
+            showTxSuccess:   /*[[${showTxSuccess}]]*/   false
+        };
+    </script>
+
+
+    <!-- Hero: Balance & Budget (all values server-rendered by Thymeleaf) -->
+    <div id="hero-slot" th:replace="~{components/hero :: hero}"></div>
+
+    <!-- Transaction History Table -->
+    <section class="px-4 sm:px-8 pb-12 antialiased">
+        <div class="mx-auto max-w-screen-xl">
+            <div class="bg-white/95 dark:bg-[#0d241a] relative shadow-xl shadow-[#007a33]/5 sm:rounded-2xl overflow-hidden border border-[#b2e0d4]/80 dark:border-[#163829] transition-colors duration-200">
+
+                <!-- Table Header Bar -->
+                <div class="flex flex-col md:flex-row items-center justify-between space-y-3 md:space-y-0 md:space-x-4 p-4 border-b border-gray-200 dark:border-[#163829]">
+
+                    <!-- Search -->
+                    <div class="w-full md:w-1/2">
+                        <form class="flex items-center" onsubmit="event.preventDefault();">
+                            <label for="simple-search" class="sr-only">Search transactions</label>
+                            <div class="relative w-full">
+                                <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                                    <svg aria-hidden="true" class="w-5 h-5 text-gray-400 dark:text-[#66b3a1]/70" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clip-rule="evenodd"/>
+                                    </svg>
+                                </div>
+                                <input type="text" id="simple-search" oninput="handleSearch(this.value)"
+                                       class="bg-gray-50/80 border border-gray-300 text-gray-900 text-sm rounded-xl focus:ring-[#007a33] focus:border-[#007a33] block w-full pl-10 p-2.5 dark:bg-[#091b13] dark:border-[#163829] dark:placeholder-gray-400 dark:text-white dark:focus:ring-[#66b3a1] dark:focus:border-[#66b3a1] transition"
+                                       placeholder="Search transactions by title, category, or notes...">
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Action & Filter Buttons -->
+                    <div class="w-full md:w-auto flex flex-col md:flex-row space-y-2 md:space-y-0 items-stretch md:items-center justify-end md:space-x-3 flex-shrink-0">
+
+                        <button type="button" id="createTransactionBtn" onclick="openCreateModal()"
+                                class="flex items-center justify-center text-white bg-[#007a33] hover:bg-[#00662a] focus:ring-4 focus:ring-[#66b3a1]/40 font-bold rounded-xl text-sm px-4 py-2.5 dark:bg-[#007a33] dark:hover:bg-[#00662a] focus:outline-none dark:focus:ring-[#007a33]/60 transition shadow-md shadow-[#007a33]/25">
+                            <svg class="h-4 w-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                                <path clip-rule="evenodd" fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"/>
+                            </svg>
+                            Add Transaction
+                        </button>
+
+                        <div class="flex items-center space-x-3 w-full md:w-auto">
+                            <!-- Options Dropdown -->
+                            <button id="actionsDropdownButton" data-dropdown-toggle="actionsDropdown"
+                                    class="w-full md:w-auto flex items-center justify-center py-2.5 px-4 text-sm font-bold text-[#004d00] dark:text-[#b2e0d4] focus:outline-none bg-white dark:bg-[#0d241a] rounded-xl border border-[#b2e0d4] dark:border-[#163829] hover:bg-[#e0f7f1] dark:hover:bg-[#133325] focus:z-10 focus:ring-4 focus:ring-[#b2e0d4]/40 transition shadow-sm"
+                                    type="button">
+                                <svg class="-ml-1 mr-1.5 w-4 h-4 text-[#007a33] dark:text-[#66b3a1]" fill="currentColor" viewBox="0 0 20 20">
+                                    <path clip-rule="evenodd" fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
+                                </svg>
+                                Options
+                            </button>
+                            <div id="actionsDropdown" class="hidden z-20 w-56 bg-white dark:bg-[#0d241a] rounded-xl divide-y divide-gray-100 dark:divide-[#163829] shadow-xl border border-[#b2e0d4]/60 dark:border-[#163829]">
+                                <ul class="py-1 text-sm text-gray-700 dark:text-gray-200" aria-labelledby="actionsDropdownButton">
+                                    <li>
+                                        <button type="button" onclick="openBalanceModal()" class="w-full text-left flex items-center py-2.5 px-4 hover:bg-[#e0f7f1]/60 dark:hover:bg-[#133325] dark:hover:text-white transition">
+                                            <svg class="w-4 h-4 mr-2 text-[#007a33] dark:text-[#66b3a1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                            Set Maintaining Balance
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" onclick="openBudgetModal()" class="w-full text-left flex items-center py-2.5 px-4 hover:bg-[#e0f7f1]/60 dark:hover:bg-[#133325] dark:hover:text-white transition">
+                                            <svg class="w-4 h-4 mr-2 text-[#007a33] dark:text-[#66b3a1]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                                            Set / Edit Monthly Budget
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button type="button" onclick="clearAllData()" class="w-full text-left flex items-center py-2.5 px-4 hover:bg-[#e0f7f1]/60 dark:hover:bg-[#133325] dark:hover:text-white transition">
+                                            <svg class="w-4 h-4 mr-2 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                                            Reset Prototype Data
+                                        </button>
+                                    </li>
+                                </ul>
+                                <div class="py-1">
+                                    <button type="button" onclick="clearAllData()" class="w-full text-left flex items-center py-2.5 px-4 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 dark:text-red-400 dark:hover:text-red-300 transition">
+                                        <svg class="w-4 h-4 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                                        Delete All Data
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Filter Dropdown -->
+                            <button id="filterDropdownButton" data-dropdown-toggle="filterDropdown"
+                                    class="w-full md:w-auto flex items-center justify-center py-2.5 px-4 text-sm font-bold text-[#004d00] dark:text-[#b2e0d4] focus:outline-none bg-white dark:bg-[#0d241a] rounded-xl border border-[#b2e0d4] dark:border-[#163829] hover:bg-[#e0f7f1] dark:hover:bg-[#133325] focus:z-10 focus:ring-4 focus:ring-[#b2e0d4]/40 transition shadow-sm"
+                                    type="button">
+                                <svg xmlns="http://www.w3.org/2000/svg" aria-hidden="true" class="h-4 w-4 mr-2 text-[#007a33] dark:text-[#66b3a1]" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z" clip-rule="evenodd"/>
+                                </svg>
+                                Filter
+                                <svg class="-mr-1 ml-1.5 w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path clip-rule="evenodd" fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/>
+                                </svg>
+                            </button>
+                            <div id="filterDropdown" class="z-20 hidden w-64 p-4 bg-white dark:bg-[#0d241a] rounded-xl shadow-xl border border-[#b2e0d4]/60 dark:border-[#163829]">
+                                <h6 class="mb-2 text-xs font-bold uppercase tracking-wider text-[#004d00] dark:text-[#b2e0d4]">Transaction Type</h6>
+                                <div class="flex items-center space-x-3 mb-3 text-sm">
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="radio" name="filterTypeRadio" value="ALL" checked onchange="handleTypeFilter('ALL')" class="w-4 h-4 text-[#007a33] bg-gray-100 border-gray-300 focus:ring-[#007a33] dark:bg-[#091b13] dark:border-[#163829] dark:focus:ring-[#66b3a1]">
+                                        <span class="ml-1.5 text-gray-700 dark:text-gray-300 font-medium">All</span>
+                                    </label>
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="radio" name="filterTypeRadio" value="EXPENSE" onchange="handleTypeFilter('EXPENSE')" class="w-4 h-4 text-red-600 bg-gray-100 border-gray-300 focus:ring-red-500 dark:bg-[#091b13] dark:border-[#163829]">
+                                        <span class="ml-1.5 text-red-600 dark:text-red-400 font-medium">Expense</span>
+                                    </label>
+                                    <label class="flex items-center cursor-pointer">
+                                        <input type="radio" name="filterTypeRadio" value="INCOME" onchange="handleTypeFilter('INCOME')" class="w-4 h-4 text-[#007a33] bg-gray-100 border-gray-300 focus:ring-[#007a33] dark:bg-[#091b13] dark:border-[#163829] dark:focus:ring-[#66b3a1]">
+                                        <span class="ml-1.5 text-[#007a33] dark:text-[#66b3a1] font-bold">Income</span>
+                                    </label>
+                                </div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <h6 class="text-xs font-bold uppercase tracking-wider text-[#004d00] dark:text-[#b2e0d4]">Categories</h6>
+                                    <button type="button" onclick="clearCategoryFilters()" class="text-xs text-[#007a33] hover:underline dark:text-[#66b3a1] font-semibold">Reset</button>
+                                </div>
+                                <ul class="space-y-1.5 text-sm max-h-48 overflow-y-auto pr-1" id="filterCategoryList">
+                                    <!-- Populated by transactions.js -->
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transaction Table — rows rendered server-side by Thymeleaf -->
+                <div class="overflow-x-auto min-h-[320px]">
+                    <table class="w-full text-sm text-left text-gray-600 dark:text-gray-300">
+                        <thead class="text-xs text-[#004d00] uppercase bg-[#e0f7f1]/70 dark:bg-[#091b13] dark:text-[#b2e0d4] font-bold tracking-wider">
+                            <tr>
+                                <th scope="col" class="px-4 py-3.5">Transaction / Title</th>
+                                <th scope="col" class="px-4 py-3.5">Category</th>
+                                <th scope="col" class="px-4 py-3.5">Type</th>
+                                <th scope="col" class="px-4 py-3.5">Date</th>
+                                <th scope="col" class="px-4 py-3.5">Amount</th>
+                                <th scope="col" class="px-4 py-3.5 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactionTableBody" class="divide-y divide-gray-200 dark:divide-[#163829]">
+
+                            <!-- Server-side empty state: shown when no transactions exist -->
+                            <tr th:if="${#lists.isEmpty(transactions)}" id="serverEmptyStateRow">
+                                <td colspan="6" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400">
+                                    <div class="flex flex-col items-center justify-center space-y-2">
+                                        <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <span class="text-base font-semibold text-gray-700 dark:text-gray-300">No transactions yet</span>
+                                        <span class="text-xs text-gray-500">Add your first transaction using the button above.</span>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- JS filter empty state: shown by JS when search/filter yields zero results -->
+                            <tr id="jsEmptyStateRow" style="display:none;">
+                                <td colspan="6" class="px-4 py-12 text-center text-gray-500 dark:text-gray-400">
+                                    <div class="flex flex-col items-center justify-center space-y-2">
+                                        <svg class="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                                        </svg>
+                                        <span class="text-base font-semibold text-gray-700 dark:text-gray-300">No transactions found</span>
+                                        <span class="text-xs text-gray-500">Try adjusting your search or filters.</span>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!--
+                                Transaction rows — rendered server-side by Thymeleaf.
+                                data-* attributes store raw values for JS modal pre-filling.
+                                JS (transactions.js) only shows/hides rows for search/filter/pagination.
+                            -->
+                            <tr th:each="tx : ${transactions}"
+                                th:attr="data-id=${tx.id},
+                                         data-title=${tx.title},
+                                         data-type=${tx.type},
+                                         data-category=${tx.category},
+                                         data-amount=${tx.amount},
+                                         data-date=${tx.date},
+                                         data-notes=${tx.notes}"
+                                class="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition tx-row">
+
+                                <!-- Title + Notes -->
+                                <td class="px-4 py-3.5 font-medium text-gray-900 whitespace-nowrap dark:text-white">
+                                    <div class="flex items-center space-x-3">
+                                        <div th:class="${tx.type == 'INCOME'} ? 'p-2 rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-950 dark:text-emerald-400 flex-shrink-0' : 'p-2 rounded-lg bg-red-100 text-red-600 dark:bg-red-950 dark:text-red-400 flex-shrink-0'">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path th:if="${tx.type == 'INCOME'}" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                                                <path th:unless="${tx.type == 'INCOME'}" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="font-semibold text-gray-900 dark:text-white" th:text="${tx.title}">Title</div>
+                                            <div th:if="${tx.notes}" class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-xs" th:text="${tx.notes}"></div>
+                                        </div>
+                                    </div>
+                                </td>
+
+                                <!-- Category badge — class from controller's CATEGORY_CLASSES map -->
+                                <td class="px-4 py-3.5 whitespace-nowrap">
+                                    <span th:text="${tx.category}"
+                                          th:class="${'px-2.5 py-1 text-xs font-medium rounded-md border ' + (categoryClasses[tx.category] ?: categoryClasses['Other'])}">
+                                        Category
+                                    </span>
+                                </td>
+
+                                <!-- Type badge -->
+                                <td class="px-4 py-3.5 whitespace-nowrap">
+                                    <span th:if="${tx.type == 'INCOME'}"
+                                          class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800">
+                                        + Income
+                                    </span>
+                                    <span th:unless="${tx.type == 'INCOME'}"
+                                          class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800">
+                                        - Expense
+                                    </span>
+                                </td>
+
+                                <!-- Date — Thymeleaf #temporals for LocalDate formatting -->
+                                <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-600 dark:text-gray-300 font-medium"
+                                    th:text="${#temporals.format(tx.date, 'MMM dd, yyyy')}">
+                                    Jan 01, 2026
+                                </td>
+
+                                <!-- Amount — pipe literal for ₱ + #numbers for formatting -->
+                                <td class="px-4 py-3.5 whitespace-nowrap">
+                                    <span th:if="${tx.type == 'INCOME'}"
+                                          th:text="|+ ₱ ${#numbers.formatDecimal(tx.amount, 1, 'COMMA', 2, 'POINT')}|"
+                                          class="font-bold text-emerald-600 dark:text-emerald-400"></span>
+                                    <span th:unless="${tx.type == 'INCOME'}"
+                                          th:text="|- ₱ ${#numbers.formatDecimal(tx.amount, 1, 'COMMA', 2, 'POINT')}|"
+                                          class="font-bold text-red-600 dark:text-red-400"></span>
+                                </td>
+
+                                <!-- Action buttons — th:onclick with pipe literal for ID -->
+                                <td class="px-4 py-3.5 whitespace-nowrap text-right text-sm">
+                                    <div class="inline-flex items-center space-x-1">
+                                        <button type="button" th:onclick="|openReadModal('${tx.id}')|"
+                                                title="Preview Details"
+                                                class="p-1.5 text-gray-500 hover:text-[#007a33] hover:bg-[#e0f7f1] dark:text-gray-400 dark:hover:text-[#b2e0d4] dark:hover:bg-[#133325] rounded-lg transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+                                            </svg>
+                                        </button>
+                                        <button type="button" th:onclick="|openUpdateModal('${tx.id}')|"
+                                                title="Edit Transaction"
+                                                class="p-1.5 text-gray-500 hover:text-amber-600 hover:bg-amber-50 dark:text-gray-400 dark:hover:text-amber-400 dark:hover:bg-gray-700 rounded-lg transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+                                            </svg>
+                                        </button>
+                                        <button type="button" th:onclick="|openDeleteModal('${tx.id}')|"
+                                                title="Delete Transaction"
+                                                class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 dark:text-gray-400 dark:hover:text-red-400 dark:hover:bg-gray-700 rounded-lg transition">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination Bar -->
+                <nav class="flex flex-col md:flex-row justify-between items-start md:items-center space-y-3 md:space-y-0 p-4 border-t border-gray-200 dark:border-[#163829]"
+                     aria-label="Table navigation">
+                    <span id="paginationInfo" class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        Showing <span class="font-bold text-[#004d00] dark:text-white" id="showingRange">0</span>
+                        of <span class="font-bold text-[#004d00] dark:text-white" id="totalCount">0</span> transactions
+                    </span>
+                    <ul class="inline-flex items-center -space-x-px text-sm" id="paginationList">
+                        <!-- Populated by transactions.js pagination -->
+                    </ul>
+                </nav>
+            </div>
+        </div>
+    </section>
+
+    <!-- Setup Wizard (first-time user flow) -->
+    <div th:replace="~{components/setup-wizard :: setup-wizard}"></div>
+
+    <!-- CRUD Modals -->
+    <div id="modals-slot" th:replace="~{components/crud-modals :: crud-modals}"></div>
+
+    <!-- Footer -->
+    <div id="footer-slot" th:replace="~{components/footer :: footer}"></div>
+
+    <!-- Flowbite JS -->
+    <script src="https://cdn.jsdelivr.net/npm/flowbite@2.5.1/dist/flowbite.min.js"></script>
+
+    <!--
+        Modular Dashboard Scripts (served from /static/components/).
+        NO window.__SERVER_DATA__ — all data is in the DOM via Thymeleaf.
+        JavaScript handles ONLY: search, filter, pagination, modals.
+    -->
+    <script src="/components/dashboard.js"></script>
+    <script src="/components/metrics.js"></script>
+    <script src="/components/transactions.js"></script>
+    <script src="/components/modals.js"></script>
+
+    <!-- Auto-open setup wizard for first-time users -->
+    <script th:inline="javascript">
+        document.addEventListener('DOMContentLoaded', function() {
+            var showWizard = /*[[${showSetupWizard}]]*/ false;
+            if (showWizard) {
+                var overlay = document.getElementById('setupWizardOverlay');
+                if (overlay) {
+                    overlay.classList.remove('hidden');
+                    overlay.style.display = '';
+                }
+            }
+        });
+    </script>
+</body>
+</html>

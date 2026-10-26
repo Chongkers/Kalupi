@@ -1,0 +1,45 @@
+<!-- Navbar Component -->
+<header th:fragment="navbar">
+    <nav class="bg-white/95 backdrop-blur border-b border-[#b2e0d4]/80 px-4 lg:px-6 py-3.5 dark:bg-[#0d241a] dark:border-[#163829] shadow-sm transition-colors duration-200">
+        <div class="flex flex-wrap justify-between items-center mx-auto max-w-screen-xl">
+            <a href="#" class="flex items-center space-x-3 group">
+                <div class="p-2.5 rounded-xl text-[#007a33] dark:text-[#66b3a1] shadow-sm border border-[#b2e0d4] dark:border-[#163829] transition group-hover:scale-105"
+                     style="background-color: #e0f7f1; color: #007a33;">
+                    <svg class="w-6 h-6" fill="none" stroke="#007a33" stroke-width="2.5" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                </div>
+                <div class="flex flex-col">
+                    <span class="self-center text-xl font-extrabold whitespace-nowrap text-[#004d00] dark:text-white tracking-tight">CashCount</span>
+                    <span class="text-xs text-[#007a33] dark:text-[#66b3a1] font-semibold -mt-0.5 tracking-wide">Personal Finance & Budget</span>
+                </div>
+            </a>
+            <div class="flex items-center space-x-2.5 lg:order-2">
+                <!-- Theme Toggle Button -->
+                <button id="themeToggleBtn" type="button" onclick="toggleTheme()"
+                        class="text-gray-600 dark:text-gray-300 hover:bg-[#e0f7f1] dark:hover:bg-[#133325] hover:text-[#007a33] dark:hover:text-[#b2e0d4] focus:outline-none focus:ring-4 focus:ring-[#b2e0d4]/50 dark:focus:ring-[#163829] rounded-lg text-sm p-2 transition flex items-center justify-center border border-gray-200 dark:border-[#163829]"
+                        title="Toggle Light / Dark Mode" aria-label="Toggle theme">
+                    <!-- Moon icon (shows in light mode) -->
+                    <svg class="w-5 h-5 theme-toggle-light-icon" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"></path>
+                    </svg>
+                    <!-- Sun icon (shows in dark mode) -->
+                    <svg class="w-5 h-5 hidden theme-toggle-dark-icon text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
+                    </svg>
+                </button>
+
+                <span class="hidden sm:inline-flex items-center text-xs font-semibold px-2.5 py-1 rounded-full bg-[#e0f7f1] text-[#004d00] dark:bg-[#004d00]/70 dark:text-[#b2e0d4] border border-[#b2e0d4] dark:border-[#163829]"
+                      th:text="${userEmail != null ? userEmail : 'CashCount'}">
+                    CashCount
+                </span>
+
+                <a href="/logout" th:href="@{/logout}"
+                   class="text-gray-700 dark:text-gray-200 hover:bg-[#e0f7f1] dark:hover:bg-[#133325] hover:text-[#007a33] dark:hover:text-[#b2e0d4] focus:ring-4 focus:ring-[#b2e0d4]/40 font-medium rounded-lg text-sm px-4 py-2 transition border border-gray-200 dark:border-[#163829] shadow-sm">
+                    Log out
+                </a>
+            </div>
+        </div>
+    </nav>
+</header>
+
