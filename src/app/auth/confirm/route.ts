@@ -4,7 +4,9 @@ import { safeNext } from "@/lib/auth/next";
 import { createClient } from "@/lib/supabase/server";
 
 // Landing spot for links in Supabase emails (signup confirmation, password reset).
-// Handles both link styles: ?code=... (default templates) and ?token_hash=...&type=...
+// Handles both link styles:
+//   ?token_hash=...&type=...  our templates (supabase/templates/); works on any device or browser
+//   ?code=...                 Supabase's default templates; only works in the browser that asked for the email
 export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams;
   const code = params.get("code");

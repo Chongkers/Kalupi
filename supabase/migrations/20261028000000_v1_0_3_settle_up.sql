@@ -1,4 +1,4 @@
--- Version 1.0.2: settle-up trackers (who owes what after an event).
+-- Version 1.0.3: settle-up trackers (who owes what after an event).
 -- Run after 20261027000000_avatar_url_check.sql.
 --
 -- A tracker is now either a saving goal (as before) or a settle-up list. Settle-up trackers are

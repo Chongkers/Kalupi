@@ -177,7 +177,7 @@ erDiagram
 - **Tracker progress** = contribution − withdrawal, over all members' transactions on that tracker.
 - **What someone owes you** (settle-up) = sum of their `split_shares.amount`; negative = you owe them.
 
-## Settle-up trackers (v1.0.2)
+## Settle-up trackers (v1.0.3)
 
 - **You paid a bill:** one expense for the full amount from your account (with `tracker_id`), plus a share per friend (+their part). Your budget counts the expense minus those shares.
 - **A friend paid:** no transaction. One share on the payer (−your part) with the category it counts toward; your budget counts your part on that date.

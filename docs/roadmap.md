@@ -122,7 +122,7 @@
 - [ ] One shared tracker shows both people's contributions
 - [ ] A bank screenshot fills in the amount correctly most of the time
 
-## Version 1.0.2: Settle-up trackers
+## Version 1.0.3: Settle-up trackers
 
 **Goal:** after a night out where you paid for everyone (or a friend paid for you), see who owes what and log it when they pay you back. Friends don't need the app.
 
@@ -133,7 +133,7 @@ A new tracker asks: **settling up after an event**, or **saving up for something
 - A friend paid and your share is ₱250: your budget counts ₱250 and you owe them ₱250. No account changes until you pay them back.
 - Paybacks (`settle_in`, `settle_out`) move money in or out of an account but are never income or spending.
 
-- [ ] Run migration `20261028000000_v1_0_2_settle_up.sql` in Supabase (before deploying)
+- [ ] Run migration `20261028000000_v1_0_3_settle_up.sql` in Supabase (before deploying)
 - [x] Tracker kind (`goal` | `split`); settle-up trackers have no target and can't be shared yet
 - [x] People on a settle-up tracker: add, rename, remove (once settled)
 - [x] Add a bill: what for, amount, category, who paid, split equally or by exact amounts

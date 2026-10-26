@@ -1,6 +1,6 @@
 # Kalupi patch notes
 
-## 1.0.2 · October 26, 2026
+## 1.0.3 · October 26, 2026
 
 ### New
 - **Settle-up trackers.** Paid for everyone after a night out, or a friend paid for you? When you make a new tracker, choose **Settling up after an event** instead of **Saving up for something**. Add your friends by name (they don't need Kalupi), then add the bills.
@@ -8,6 +8,8 @@
 - **Settle up.** When someone pays you back (or you pay them), record all or part of it and pick the account the money went into or came out of.
 - **Reminders.** Copy or share a message like "You owe ₱250 for Boracay trip".
 - **Owed to you** now shows on the Trackers page, across all your settle-up trackers.
+- **Terms and Privacy Policy.** When you sign up, you'll tick a box to agree to the Terms and Conditions and the Privacy Policy. Tap either one to read it in a pop-up without leaving the page. You can read them again any time in **Settings → Terms and privacy**.
+- **Delete your account.** Go to **Settings → Delete account** to send a deletion request by email. Your account and all its data are deleted within 7 days, and you'll get a reply when it's done.
 
 ### Improved
 - **Your budget counts only your share.** If you paid a ₱1,000 bill split four ways, your account goes down ₱1,000 but your budget, dashboard and History count only your ₱250. Paybacks move money in or out of an account but never count as income or spending.
@@ -16,9 +18,11 @@
 ### Fixed
 - Logging out no longer flashes the setup wizard.
 - Logging out now fully clears your data from the device, even if a sync was running at the time.
+- **Email links work anywhere.** The confirm-your-email and reset-password links used to fail with "That link expired" when opened on a different phone or browser, or in the Gmail app. They now work wherever you open them.
 
 ### For the database
-- Run `supabase/migrations/20261028000000_v1_0_2_settle_up.sql` in Supabase before using 1.0.2. It adds settle-up trackers, the people and shares on them, and the payback entry types.
+- Run `supabase/migrations/20261028000000_v1_0_3_settle_up.sql` in Supabase before using 1.0.3. It adds settle-up trackers, the people and shares on them, and the payback entry types.
+- In Supabase → Authentication → Emails, replace the **Confirm signup** and **Reset password** templates with the ones in `supabase/templates/`.
 
 ## 1.0.1 · October 26, 2026
 

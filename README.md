@@ -16,17 +16,20 @@ Personal budget and savings tracker for two users. Next.js (App Router) + TypeSc
 
 Newest first. Each version that changes the database has a migration in [supabase/migrations/](supabase/migrations/); run it in the Supabase SQL Editor before deploying that version.
 
-### 1.0.2
+### 1.0.3
 
-Migration: [20261028000000_v1_0_2_settle_up.sql](supabase/migrations/20261028000000_v1_0_2_settle_up.sql)
+Migration: [20261028000000_v1_0_3_settle_up.sql](supabase/migrations/20261028000000_v1_0_3_settle_up.sql). Also paste the email templates in [supabase/templates/](supabase/templates/) into Supabase (see [docs/launch.md](docs/launch.md)).
 
 - Settle-up trackers: a new tracker asks whether you're settling up after an event or saving up for something. Settle-up trackers list the friends (names you type in), the bills, and who owes what.
 - Add a bill: what it was for, amount, category, who paid, split equally or by exact amounts.
 - Settle up with someone, fully or partly, into or out of an account; copy or share a reminder ("You owe ₱250 for Boracay trip").
 - Budget, dashboard and history count only your share of a split bill. Paybacks move money in or out of an account but never count as income or spending.
 - Trackers page shows the total owed to you across settle-up trackers.
+- Terms and Conditions and Privacy Policy: sign-up now needs an "I agree" tick; both open in a modal from sign-up and from Settings → Terms and privacy. The account records which version was agreed to and when (user metadata `terms_version`, `terms_accepted_at`).
+- Delete account in Settings: for now it emails a deletion request to the contact address in [src/lib/legal.ts](src/lib/legal.ts); the steps for handling one are in [docs/launch.md](docs/launch.md). In-app deletion comes later.
 - Login and sign-up screens have a new dark brand panel.
 - Fix: logging out no longer flashes the setup wizard, and sync can't download your data back onto the device after logout wipes it.
+- Fix: email confirmation and password reset links work on any device or browser, not just the one that asked for the email.
 
 ### 1.0.1
 

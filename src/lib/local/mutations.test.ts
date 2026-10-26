@@ -5,12 +5,14 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearLocalData, db, setMeta, type CategoryRow, type SyncedTable } from "./db";
 import { accountBalances } from "@/lib/finance/balances";
 import { personBalances, spendingView } from "@/lib/finance/splits";
+import { planTarsiImport, readTarsiBackup } from "@/lib/import/tarsi";
 import {
   addSplitPerson,
   completeSetup,
   deleteSplitEntry,
   deleteTransaction,
   ensureMonthBudget,
+  importTarsi,
   leaveTracker,
   logPreset,
   ME as YOU,
@@ -340,7 +342,7 @@ describe("setCategoryStyle", () => {
   });
 });
 
-describe("settle-up trackers (v1.0.2)", () => {
+describe("settle-up trackers (v1.0.3)", () => {
   const live = async () => ({
     transactions: (await db.transactions.toArray()).filter((t) => !t.deleted_at),
     shares: (await db.split_shares.toArray()).filter((s) => !s.deleted_at),
@@ -451,5 +453,68 @@ describe("settle-up trackers (v1.0.2)", () => {
     expect((await savePreset({ name: "Trip", type: "contribution", amount: "100", accountId: "", categoryId: "", trackerId })).error).toMatch(
       /saving trackers/,
     );
+  });
+});
+
+describe("importTarsi (replace)", () => {
+  const HEADER = "recordType,id,name,icon,amount,balance,category,tagId,note,date,createdAt,accountId";
+  const plan = planTarsiImport(
+    readTarsiBackup(
+      [
+        HEADER,
+        "account,t-cash,Wallet,wallet-outline,,500,,,,,2026-10-01T01:00:00.000Z,",
+        "account,t-gcash,GCash,phone-portrait-outline,,250.50,,,,,2026-10-01T01:00:00.000Z,",
+        "expense,e1,,,100,,food,,Kape,2026-10-02,2026-10-02T01:00:00.000Z,t-cash",
+        "expense,e2,,,49.50,,fees,,Load,2026-10-03,2026-10-03T01:00:00.000Z,t-gcash",
+        "income,i1,,,300,,,allowance,Baon,2026-10-04,2026-10-04T01:00:00.000Z,t-gcash",
+      ].join("\n"),
+    ),
+  );
+
+  beforeEach(async () => {
+    // Something already here to replace: a manual expense on the existing "Wallet"
+    await saveTransaction({ type: "expense", amount: "999", accountId: "cash", toAccountId: "", categoryId: "food", occurredOn: "2026-10-20", note: "old" });
+    await db.outbox.clear();
+  });
+
+  it("ends with Tarsi's accounts, entries and balances", async () => {
+    expect(await importTarsi(plan)).toEqual({ added: 3 });
+
+    const accounts = (await db.accounts.toArray()).filter((a) => !a.deleted_at);
+    expect(accounts.map((a) => a.name).sort()).toEqual(["GCash", "Wallet"]);
+    // The existing "Wallet" is reused (names are unique even after a delete)
+    expect(accounts.find((a) => a.name === "Wallet")!.id).toBe("cash");
+
+    const live = (await db.transactions.toArray()).filter((t) => !t.deleted_at);
+    expect(live.some((t) => t.note === "old")).toBe(false);
+    const balances = accountBalances(live);
+    expect(balances.get("cash")).toBe(50000);
+    expect(balances.get(accounts.find((a) => a.name === "GCash")!.id)).toBe(25050);
+  });
+
+  it("reuses matching categories and creates the missing ones", async () => {
+    await importTarsi(plan);
+    const categories = (await db.categories.toArray()).filter((c) => !c.deleted_at);
+    const names = categories.map((c) => `${c.kind}:${c.name}`);
+    expect(names).toEqual(expect.arrayContaining(["expense:Food", "expense:Fees", "income:Allowance", "income:Opening balance"]));
+    // "food" maps to "Food & Dining", which this test user doesn't have, so it's created
+    expect(names).toContain("expense:Food & Dining");
+    const kape = (await db.transactions.toArray()).find((t) => t.note === "Kape")!;
+    expect(categories.find((c) => c.id === kape.category_id)!.name).toBe("Food & Dining");
+  });
+
+  it("queues removals first and new rows after their accounts and categories", async () => {
+    await importTarsi(plan);
+    const order = await queued();
+    expect(order[0]).toBe("transactions"); // removing the old entry
+    const firstNewEntry = order.indexOf("transactions", 1);
+    expect(order.lastIndexOf("accounts")).toBeLessThan(firstNewEntry);
+    expect(order.lastIndexOf("categories")).toBeLessThan(firstNewEntry);
+  });
+
+  it("keeps the original dates and notes", async () => {
+    await importTarsi(plan);
+    const load = (await db.transactions.toArray()).find((t) => t.note === "Load")!;
+    expect(load).toMatchObject({ type: "expense", amount: 4950, occurred_on: "2026-10-03", created_at: "2026-10-03T01:00:00.000Z" });
   });
 });

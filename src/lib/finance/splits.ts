@@ -1,4 +1,4 @@
-// Settle-up trackers (v1.0.2, docs/erd.md "Settle-up"). Shares say what each person owes you
+// Settle-up trackers (v1.0.3, docs/erd.md "Settle-up"). Shares say what each person owes you
 // (+) or you owe them (−). Your budget counts only your own share of a bill, while account
 // balances follow the money that actually moved.
 import { formatPeso } from "@/lib/money";

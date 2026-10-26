@@ -46,7 +46,7 @@ export function useOverview() {
     const balances = accountBalances(transactions);
     const end = monthEnd(now);
     const monthTransactions = transactions.filter((t) => t.occurred_on >= month && t.occurred_on <= end);
-    // Budget and in/out totals count your share of split bills only (v1.0.2)
+    // Budget and in/out totals count your share of split bills only (v1.0.3)
     const spending = spendingView(transactions, live(shareRows));
     const monthSpending = spending.filter((t) => t.occurred_on >= month && t.occurred_on <= end);
 

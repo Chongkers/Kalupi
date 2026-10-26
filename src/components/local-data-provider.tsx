@@ -30,6 +30,7 @@ const APP_ROUTES = [
   "/settings/accounts",
   "/settings/categories",
   "/settings/presets",
+  "/settings/import",
 ];
 
 function saveScreensForOffline() {

@@ -74,7 +74,7 @@ export type PresetRow = Synced & {
 export type TrackerRow = Synced & {
   id: string;
   name: string;
-  /** Missing on rows cached before v1.0.2 = goal */
+  /** Missing on rows cached before v1.0.3 = goal */
   kind?: TrackerKind;
   /** null for settle-up trackers */
   target_amount: number | null;
@@ -199,7 +199,7 @@ class KalupiDB extends Dexie {
       outbox: "++seq, key",
       meta: "key",
     });
-    // v1.0.2: settle-up trackers
+    // v1.0.3: settle-up trackers
     this.version(2).stores({
       split_people: "id, tracker_id",
       split_shares: "id, tracker_id, transaction_id",

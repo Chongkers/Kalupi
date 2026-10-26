@@ -7,6 +7,7 @@ import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/c
 import { Input } from "@/components/ui/input";
 import { inputClass, labelClass, submitClass } from "@/components/form-styles";
 import { NextField } from "@/components/auth/next-link";
+import { LegalLink } from "@/components/legal/legal-dialog";
 import { signup, type SignupState } from "./actions";
 
 const initialState: SignupState = {};
@@ -19,8 +20,7 @@ export function SignupForm() {
       <div className="flex items-start gap-3 rounded-xl bg-mint p-4 text-mint-foreground">
         <MailCheck className="mt-0.5 size-5 shrink-0" />
         <p className="text-sm">
-          We sent a confirmation link to <strong>{state.sentTo}</strong>. Open it on this device to finish
-          signing up.
+          We sent a confirmation link to <strong>{state.sentTo}</strong>. Open it to finish signing up.
         </p>
       </div>
     );
@@ -76,6 +76,22 @@ export function SignupForm() {
           />
           <FieldDescription>At least 8 characters.</FieldDescription>
         </Field>
+
+        {/* The links open modals; clicking them doesn't tick the box */}
+        <div className="flex items-start gap-3">
+          <input
+            id="terms"
+            name="terms"
+            type="checkbox"
+            required
+            defaultChecked={state.termsAccepted}
+            className="mt-0.5 size-5 shrink-0 accent-primary"
+          />
+          <label htmlFor="terms" className="text-sm leading-snug">
+            I&apos;ve read and agree to the <LegalLink doc="terms">Terms and Conditions</LegalLink> and{" "}
+            <LegalLink doc="privacy">Privacy Policy</LegalLink>.
+          </label>
+        </div>
 
         <FieldError>{state.error}</FieldError>
 

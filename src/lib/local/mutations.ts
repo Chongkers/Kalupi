@@ -3,6 +3,7 @@
 // offline) and sync.ts sends them to Supabase when it can.
 import { monthStart, today, type DateString } from "@/lib/dates";
 import { isColor, isIcon } from "@/lib/finance/category-style";
+import type { ImportPlan } from "@/lib/import/tarsi";
 import { personBalances, splitEvenly } from "@/lib/finance/splits";
 import { OPENING_BALANCE, type AccountKind, type CategoryKind, type TrackerKind } from "@/lib/finance/types";
 import { formatPeso, parseOptionalPeso, parsePeso } from "@/lib/money";
@@ -574,7 +575,7 @@ function trackerNet(transactions: TransactionRow[], trackerId: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Settle-up trackers (v1.0.2). Shares: + they owe you, − you owe them (docs/erd.md).
+// Settle-up trackers (v1.0.3). Shares: + they owe you, − you owe them (docs/erd.md).
 // ---------------------------------------------------------------------------
 
 /** The id that stands for you in a bill's participants and payer. */
@@ -899,6 +900,131 @@ export async function logPreset(presetId: string, amount: string, accountId: str
     note: preset.name,
     source: "preset",
   });
+}
+
+// ---------------------------------------------------------------------------
+// Import from Tarsi (Settings → Import)
+// ---------------------------------------------------------------------------
+
+/** What "Replace" removes, for the confirm dialog. */
+export async function replaceImpact() {
+  const [accounts, transactions, shares] = await Promise.all([
+    db.accounts.toArray(),
+    db.transactions.toArray(),
+    db.split_shares.toArray(),
+  ]);
+  return { accounts: live(accounts).length, entries: live(transactions).length, splitShares: live(shares).length };
+}
+
+/**
+ * Replace this account's money with a Tarsi backup: every account, entry and settle-up share is
+ * removed (soft delete, so other devices follow), then Tarsi's accounts and entries are added with
+ * opening balances that make each balance match Tarsi. Categories, budgets, presets and trackers stay.
+ * Names are unique per user even after a delete, so same-named accounts and categories are reused.
+ */
+export async function importTarsi(plan: ImportPlan): Promise<Result & { added?: number }> {
+  if (plan.accounts.length === 0) return { error: "There are no accounts in this backup." };
+  const user = await userId();
+  const stamp = nowIso();
+  const changes: Change[] = [];
+
+  // 1. Clear what's here
+  for (const share of live(await db.split_shares.toArray())) {
+    changes.push({ table: "split_shares", row: { ...share, deleted_at: stamp } });
+  }
+  for (const t of live(await db.transactions.toArray())) {
+    changes.push({ table: "transactions", row: { ...t, deleted_at: stamp } });
+  }
+
+  // 2. Categories the entries need: reuse by name (even archived or deleted), else create
+  const allCategories = await db.categories.toArray();
+  const categoryIds = new Map<string, string>();
+  const ensureCategory = (name: string, kind: CategoryKind) => {
+    const key = `${kind}:${name.toLowerCase()}`;
+    if (categoryIds.has(key)) return categoryIds.get(key)!;
+    const existing = allCategories.find((c) => c.kind === kind && sameName(c.name, name));
+    if (existing) {
+      if (existing.deleted_at || existing.archived_at) {
+        changes.push({ table: "categories", row: { ...existing, deleted_at: null, archived_at: null } });
+      }
+      categoryIds.set(key, existing.id);
+    } else {
+      const created = newCategory(user, name, kind);
+      changes.push({ table: "categories", row: created });
+      categoryIds.set(key, created.id);
+    }
+    return categoryIds.get(key)!;
+  };
+  const openingId = ensureCategory(OPENING_BALANCE, "income");
+  for (const c of plan.categories) ensureCategory(c.name, c.kind);
+
+  // 3. Accounts: Tarsi's, reusing same-named ones; any others are removed
+  const allAccounts = await db.accounts.toArray();
+  const accountIds = new Map<string, string>();
+  const kept = new Set<string>();
+  for (const a of plan.accounts) {
+    const existing = allAccounts.find((row) => sameName(row.name, a.name));
+    const row: AccountRow = {
+      ...(existing ?? newAccount(user, a.name, a.kind)),
+      name: a.name,
+      kind: a.kind,
+      archived_at: a.archived ? stamp : null,
+      deleted_at: null,
+    };
+    if (a.createdAt && !existing) row.created_at = a.createdAt;
+    changes.push({ table: "accounts", row });
+    accountIds.set(a.id, row.id);
+    kept.add(row.id);
+  }
+  for (const row of live(allAccounts)) {
+    if (!kept.has(row.id)) changes.push({ table: "accounts", row: { ...row, deleted_at: stamp } });
+  }
+
+  // 4. Opening balances, then every entry (sent after their accounts and categories)
+  const entry = (fields: Pick<TransactionRow, "type" | "amount" | "account_id" | "category_id" | "occurred_on" | "note"> & { created_at?: string | null }): Change => ({
+    table: "transactions",
+    row: {
+      id: id(),
+      user_id: user,
+      to_account_id: null,
+      tracker_id: null,
+      source: "manual",
+      updated_at: stamp,
+      deleted_at: null,
+      ...fields,
+      created_at: fields.created_at ?? stamp,
+    },
+  });
+  for (const a of plan.accounts) {
+    if (a.opening <= 0) continue;
+    changes.push(
+      entry({
+        type: "income",
+        amount: a.opening,
+        account_id: accountIds.get(a.id)!,
+        category_id: openingId,
+        occurred_on: a.openingDate,
+        note: `Starting balance of ${a.name}`,
+        created_at: a.createdAt,
+      }),
+    );
+  }
+  for (const e of plan.entries) {
+    changes.push(
+      entry({
+        type: e.type,
+        amount: e.amount,
+        account_id: accountIds.get(e.accountId)!,
+        category_id: ensureCategory(e.categoryName, e.type),
+        occurred_on: e.date,
+        note: e.note,
+        created_at: e.createdAt,
+      }),
+    );
+  }
+
+  await write(changes);
+  return { added: plan.entries.length };
 }
 
 // ---------------------------------------------------------------------------

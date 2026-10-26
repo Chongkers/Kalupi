@@ -1,0 +1,16 @@
+<!-- Supabase → Authentication → Emails → Confirm signup. Subject: Confirm your Kalupi account -->
+<!-- {{ .RedirectTo }} is /auth/confirm?next=... from signup/actions.ts, so the token is appended with & -->
+<div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px; color: #1c1838">
+  <h2 style="margin: 0 0 16px">Welcome to Kalupi</h2>
+  <p style="margin: 0 0 24px">Tap the button to confirm your email and start tracking your money.</p>
+  <p style="margin: 0 0 24px">
+    <a
+      href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email"
+      style="display: inline-block; background: #1c1838; color: #ffffff; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: bold"
+      >Confirm my email</a
+    >
+  </p>
+  <p style="margin: 0; font-size: 13px; color: #5f5a7a">
+    If you didn't sign up for Kalupi, you can ignore this email.
+  </p>
+</div>
