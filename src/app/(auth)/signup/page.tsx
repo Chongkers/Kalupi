@@ -6,7 +6,7 @@ export default function SignupPage() {
   return (
     <>
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold">Create an account</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">Create an account</h1>
         <p className="text-muted-foreground">Start tracking your money in a minute.</p>
       </div>
 

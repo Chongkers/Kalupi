@@ -53,7 +53,7 @@ function Invite() {
         <Goal className="size-7" />
       </span>
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold">{invite.tracker_name}</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">{invite.tracker_name}</h1>
         <p className="text-muted-foreground">
           {invite.status === "member"
             ? "You're already saving toward this one."

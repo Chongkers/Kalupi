@@ -10,6 +10,7 @@ import { logOutOfDevice } from "@/components/app-shell/logout";
 import { useLocalProfile } from "@/lib/local/hooks";
 import { ProfileForm } from "./profile-form";
 import { ThemePicker } from "./theme-picker";
+import { version } from "../../../../package.json";
 
 function Profile() {
   const profile = useLocalProfile();
@@ -96,6 +97,7 @@ export default function SettingsPage() {
 
       {/* Required by the heading font's CC BY 4.0 licence */}
       <p className="text-center text-xs text-muted-foreground">
+        Kalupi v{version} ·{" "}
         Fonts made from{" "}
         <a href="http://www.onlinewebfonts.com" className="underline underline-offset-2" target="_blank" rel="noreferrer">
           Web Fonts

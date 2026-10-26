@@ -25,6 +25,7 @@ erDiagram
     PROFILES {
         uuid id PK "same id as auth.users"
         text display_name
+        text avatar_url "nullable, public URL in the avatars bucket"
         timestamptz created_at
     }
 
@@ -44,6 +45,8 @@ erDiagram
         uuid user_id FK
         text name
         text kind "income | expense"
+        text icon "nullable, icon key; null = picked from the name"
+        text color "nullable, color key; null = picked from the name"
         timestamptz archived_at "null = active"
         timestamptz updated_at "set by server, used as sync cursor"
         timestamptz deleted_at "null = live, soft delete for sync"

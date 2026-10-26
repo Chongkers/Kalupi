@@ -2,10 +2,12 @@
 
 ## 1. Database
 
-In Supabase → SQL Editor, run `supabase/migrations/20261024000000_trackers_presets_launch.sql`.
-It adds the custom monthly limit, preset archiving, the invite preview and the keep-alive `ping()`.
+In Supabase → SQL Editor, run each migration once, in order:
 
-Run it before using the new screens: until it's in, saving a budget or preset is refused by the server.
+1. `supabase/migrations/20261024000000_trackers_presets_launch.sql`: custom monthly limit, preset archiving, invite preview, keep-alive `ping()`.
+2. `supabase/migrations/20261026000000_v1_0_1.sql` (v1.0.1): category icons and colors, profile pictures (creates the `avatars` storage bucket).
+
+Run them before using the new screens: until they're in, the server refuses the new kinds of changes (budgets, presets, category icons, pictures).
 
 ## 2. Vercel
 

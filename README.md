@@ -12,6 +12,25 @@ Personal budget and savings tracker for two users. Next.js (App Router) + TypeSc
 - Data model: [docs/erd.md](docs/erd.md)
 - Original UI (Thymeleaf, reference only): [templates/](templates/)
 
+## Versions
+
+Newest first. Each version that changes the database has a migration in [supabase/migrations/](supabase/migrations/); run it in the Supabase SQL Editor before deploying that version.
+
+### 1.0.1
+
+Migration: [20261026000000_v1_0_1.sql](supabase/migrations/20261026000000_v1_0_1.sql)
+
+- Category icons and colors: pick them in Settings → Categories; categories you haven't styled get one guessed from their name. Accounts get an icon by type.
+- Profile pictures: add, change or remove one in Settings. It's shrunk on the phone before upload and shown in the account menu and on shared trackers.
+- Setup wizard: budget the month as one total instead of a limit per category.
+- Add entry: presets appear in the form; one tap fills it in.
+- Budgets and History: wider layout with the category list two across on larger screens; budget rows show the category icon and turn red when over.
+- Transaction list and trackers show category icons and member pictures.
+
+### 1.0.0
+
+First release (the MVP in [docs/roadmap.md](docs/roadmap.md)): accounts, transactions, monthly budget with guardrail, offline sync, shared trackers, presets, history reports and screenshot scan.
+
 ## Run locally
 
 1. `npm install`

@@ -5,7 +5,7 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <div className="flex flex-col gap-1">
-        <h1 className="text-3xl font-bold">Forgot password</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">Forgot password</h1>
         <p className="text-muted-foreground">We&apos;ll email you a link to set a new one.</p>
       </div>
 

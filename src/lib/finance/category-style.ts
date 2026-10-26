@@ -89,7 +89,7 @@ const RULES: [RegExp, CategoryIconKey, CategoryColor][] = [
 const anchored = new Map<RegExp, RegExp>();
 function startsWord(pattern: RegExp) {
   let result = anchored.get(pattern);
-  if (!result) anchored.set(pattern, (result = new RegExp(`\b(?:${pattern.source})`, pattern.flags)));
+  if (!result) anchored.set(pattern, (result = new RegExp(`\\b(?:${pattern.source})`, pattern.flags)));
   return result;
 }
 
