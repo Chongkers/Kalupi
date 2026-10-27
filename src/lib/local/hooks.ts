@@ -24,7 +24,7 @@ export function useOverview() {
   return useLiveQuery(async () => {
     const now = today();
     const month = monthStart(now);
-    const [accountRows, categoryRows, transactionRows, budgets, presetRows, shareRows, billRows, billPaymentRows, savedOrder] = await Promise.all([
+    const [accountRows, categoryRows, transactionRows, budgets, presetRows, shareRows, billRows, billPaymentRows, savedOrder, countOwed] = await Promise.all([
       db.accounts.toArray(),
       db.categories.toArray(),
       db.transactions.toArray(),
@@ -34,6 +34,7 @@ export function useOverview() {
       db.bills.toArray(),
       db.bill_payments.toArray(),
       getMeta("presetOrder"),
+      getMeta<boolean>("countOwed"),
     ]);
 
     const accounts: Account[] = live(accountRows).sort((a, b) => a.created_at.localeCompare(b.created_at));
@@ -68,6 +69,10 @@ export function useOverview() {
       spending,
       monthSpending,
       available: availableBalance(transactions),
+      /** What friends owe you and what you owe them, across settle-up trackers (both positive) */
+      owed: owedTotals(personBalances(live(shareRows)).values()),
+      /** Dashboard option: add `owed` to the available balance. Remembered on this device */
+      countOwed: countOwed === true,
       monthBudget,
       budget: monthBudget ? summarizeBudget(monthBudget.items, categories, monthSpending, monthBudget.totalLimit) : null,
       /** Picked in Settings → Presets; remembered on this device */

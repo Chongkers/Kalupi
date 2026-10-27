@@ -22,6 +22,7 @@ import { useOverview, type Overview, type SplitTrackerView } from "@/lib/local/h
 import {
   addSplitPerson,
   deleteSplitEntry,
+  editPayback,
   ME,
   removeSplitPerson,
   renameSplitPerson,
@@ -280,34 +281,36 @@ function BillForm({
 // Settle up form
 // ---------------------------------------------------------------------------
 
+/** Record a payback, or change one already recorded (`editing`). */
 function SettleForm({
   tracker,
   person,
   overview,
   today,
+  editing,
   onSaved,
 }: {
   tracker: SplitTrackerView;
   person: Person;
   overview: Overview;
   today: DateString;
+  editing?: SplitEntry;
   onSaved: () => void;
 }) {
   const [error, setError] = useState<string>();
   const [isPending, startTransition] = useTransition();
-  const theyPay = person.balance > 0;
-  const accounts = overview.accounts.filter((a) => !a.archived);
+  // When editing, what was owed before this payback: its own share is taken back out of the balance
+  const owedBefore = editing ? person.balance - (editing.people[0]?.amount ?? 0) : person.balance;
+  const theyPay = editing ? editing.kind === "paid-you-back" : person.balance > 0;
+  const accounts = overview.accounts.filter((a) => !a.archived || a.id === editing?.accountId);
 
   function submit(formData: FormData) {
     const get = (key: string) => String(formData.get(key) ?? "");
     startTransition(async () => {
-      const result = await settleUp({
-        trackerId: tracker.id,
-        personId: person.id,
-        amount: get("amount"),
-        accountId: get("accountId"),
-        occurredOn: get("occurredOn"),
-      });
+      const fields = { amount: get("amount"), accountId: get("accountId"), occurredOn: get("occurredOn") };
+      const result = editing
+        ? await editPayback({ id: editing.id, ...fields })
+        : await settleUp({ trackerId: tracker.id, personId: person.id, ...fields });
       setError(result.error);
       if (!result.error) onSaved();
     });
@@ -327,14 +330,16 @@ function SettleForm({
               name="amount"
               inputMode="decimal"
               autoComplete="off"
-              defaultValue={toInputValue(Math.abs(person.balance))}
+              defaultValue={toInputValue(editing ? editing.amount : Math.abs(person.balance))}
               autoFocus
               required
               className={cn(amountInputClass, "max-w-48")}
             />
           </div>
           <p className="text-center text-sm text-muted-foreground">
-            {theyPay ? `${person.name} owes you` : `You owe ${person.name}`} {formatPeso(Math.abs(person.balance))}. Change it for a partial payment.
+            {editing
+              ? `${theyPay ? `${person.name} owed you` : `You owed ${person.name}`} ${formatPeso(Math.abs(owedBefore))} before this payment.`
+              : `${theyPay ? `${person.name} owes you` : `You owe ${person.name}`} ${formatPeso(Math.abs(person.balance))}. Change it for a partial payment.`}
           </p>
         </Field>
 
@@ -343,7 +348,7 @@ function SettleForm({
             <FieldLabel htmlFor="settle-account" className={labelClass}>
               {theyPay ? "Into" : "From"}
             </FieldLabel>
-            <NativeSelect id="settle-account" name="accountId" defaultValue={accounts[0]?.id} className="w-full" selectClassName={selectClass}>
+            <NativeSelect id="settle-account" name="accountId" defaultValue={editing?.accountId ?? accounts[0]?.id} className="w-full" selectClassName={selectClass}>
               {accounts.map((a) => (
                 <NativeSelectOption key={a.id} value={a.id}>
                   {a.name} · {formatPeso(a.balance)}
@@ -355,7 +360,7 @@ function SettleForm({
             <FieldLabel htmlFor="settle-date" className={labelClass}>
               Date
             </FieldLabel>
-            <Input id="settle-date" name="occurredOn" type="date" defaultValue={today} required className={inputClass} />
+            <Input id="settle-date" name="occurredOn" type="date" defaultValue={editing?.occurred_on ?? today} required className={inputClass} />
           </Field>
         </div>
 
@@ -365,7 +370,7 @@ function SettleForm({
 
         <FieldError>{error}</FieldError>
         <Button type="submit" size="lg" disabled={isPending || accounts.length === 0} className={submitClass}>
-          {isPending ? "Saving…" : "Record payment"}
+          {isPending ? "Saving…" : editing ? "Save changes" : "Record payment"}
         </Button>
       </FieldGroup>
     </form>
@@ -469,6 +474,7 @@ function entryDetails(entry: SplitEntry, names: Map<string, string>, accountName
 type Open =
   | { dialog: "bill" }
   | { dialog: "settle"; person: Person }
+  | { dialog: "payback"; person: Person; entry: SplitEntry }
   | { dialog: "rename"; person: Person }
   | { dialog: "edit" }
   | null;
@@ -480,6 +486,7 @@ export function SplitTracker({ tracker, today }: { tracker: SplitTrackerView; to
   const close = () => setOpen(null);
   const active = !tracker.archived;
   const settled = tracker.owedToYou === 0 && tracker.youOwe === 0;
+  const people = new Map(tracker.people.map((p) => [p.id, p]));
 
   return (
     <>
@@ -560,6 +567,16 @@ export function SplitTracker({ tracker, today }: { tracker: SplitTrackerView; to
                         >
                           {formatPeso(e.amount)}
                         </span>
+                        {active && isPayback && people.get(e.people[0]?.personId ?? "") && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            aria-label="Edit payback"
+                            onClick={() => setOpen({ dialog: "payback", person: people.get(e.people[0].personId)!, entry: e })}
+                          >
+                            <Pencil />
+                          </Button>
+                        )}
                         {active && (
                           <ConfirmButton
                             size="icon"
@@ -704,6 +721,25 @@ export function SplitTracker({ tracker, today }: { tracker: SplitTrackerView; to
                 onSaved={() => {
                   close();
                   toast.success("Payment recorded");
+                }}
+              />
+            </>
+          )}
+          {open?.dialog === "payback" && overview && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit payback</DialogTitle>
+                <DialogDescription>{open.entry.note}</DialogDescription>
+              </DialogHeader>
+              <SettleForm
+                tracker={tracker}
+                person={open.person}
+                overview={overview}
+                today={today}
+                editing={open.entry}
+                onSaved={() => {
+                  close();
+                  toast.success("Payback updated");
                 }}
               />
             </>

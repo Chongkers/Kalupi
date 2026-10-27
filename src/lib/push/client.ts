@@ -4,7 +4,7 @@
 import { getMeta } from "@/lib/local/db";
 import { createClient } from "@/lib/supabase/client";
 
-export type PushState = "unsupported" | "needs-install" | "blocked" | "off" | "on";
+export type PushState = "not-configured" | "unsupported" | "needs-install" | "blocked" | "off" | "on";
 
 const PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "";
 
@@ -17,7 +17,9 @@ function isInstalled() {
 }
 
 export async function pushState(): Promise<PushState> {
-  if (!("serviceWorker" in navigator) || !PUBLIC_KEY) return "unsupported";
+  if (!("serviceWorker" in navigator)) return "unsupported";
+  // The server's key wasn't set when this version was built (NEXT_PUBLIC_VAPID_PUBLIC_KEY)
+  if (!PUBLIC_KEY) return "not-configured";
   // iOS only offers push to installed web apps
   if (!("PushManager" in window)) return isIos() && !isInstalled() ? "needs-install" : "unsupported";
   if (Notification.permission === "denied") return "blocked";
@@ -33,18 +35,28 @@ function keyBytes(base64url: string) {
 
 export async function enablePush(): Promise<{ error?: string }> {
   if (!navigator.onLine) return { error: "You're offline. Connect to turn on reminders." };
+
+  // Ask before anything else is awaited: browsers (iPhone especially) only show the prompt straight
+  // from a tap, and treat a later request as refused without asking
+  const permission = await Notification.requestPermission();
+  if (permission === "denied") {
+    return { error: "Notifications are blocked. Allow them for Kalupi in your browser or phone settings." };
+  }
+  if (permission !== "granted") return { error: "Notifications weren't allowed. Turn this on again and choose Allow." };
+
   const owner = await getMeta<{ userId: string }>("owner");
   if (!owner) return { error: "Not logged in." };
 
-  const permission = await Notification.requestPermission();
-  if (permission !== "granted") {
-    return { error: "Notifications are blocked. Allow them for Kalupi in your browser or phone settings." };
-  }
-
   const registration = await navigator.serviceWorker.ready;
-  const subscription =
-    (await registration.pushManager.getSubscription()) ??
-    (await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(PUBLIC_KEY) }));
+  let subscription: PushSubscription;
+  try {
+    subscription =
+      (await registration.pushManager.getSubscription()) ??
+      (await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(PUBLIC_KEY) }));
+  } catch {
+    // A bad server key, or the phone's push service couldn't be reached
+    return { error: "Couldn't set up reminders on this device. Try again later." };
+  }
   const json = subscription.toJSON();
 
   const supabase = createClient();

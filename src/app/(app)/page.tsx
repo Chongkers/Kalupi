@@ -16,10 +16,12 @@ import { TransactionList } from "@/components/finance/transaction-list";
 import { Button } from "@/components/ui/button";
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { addMonths, dayOfMonth, formatMonth, monthStart } from "@/lib/dates";
 import { dailyTotals, groupByDay, inAndOut } from "@/lib/finance/list";
 import { needsConfirming, unpaidTotal, type BillDue } from "@/lib/finance/bills";
 import { ACCOUNT_KIND_LABELS } from "@/lib/finance/types";
+import { setMeta } from "@/lib/local/db";
 import { useOverview, useTrackers, type Overview } from "@/lib/local/hooks";
 import { formatPeso, formatSignedPeso } from "@/lib/money";
 
@@ -45,12 +47,12 @@ function splitLine(owedToYou: number, youOwe: number) {
     .join(" · ");
 }
 
-/** Bills due today or overdue (one tap to pay), then the next few coming up. */
+/** Bills due today or overdue (one tap to pay), then the next ones coming up. Shown whenever you have bills. */
 function BillsCard({ overview }: { overview: Overview }) {
   const [paying, setPaying] = useState<BillDue | null>(null);
   const open = overview.billDues.filter((d) => d.status !== "paid" && d.status !== "skipped");
-  const shown = [...needsConfirming(open), ...open.filter((d) => d.status === "upcoming" && d.daysAway <= 14)].slice(0, 4);
-  if (overview.bills.length === 0 || shown.length === 0) return null;
+  const shown = [...needsConfirming(open), ...open.filter((d) => d.status === "upcoming")].slice(0, 4);
+  if (!overview.bills.some((b) => !b.archived_at)) return null;
   const categoryById = new Map(overview.categories.map((c) => [c.id, c]));
 
   return (
@@ -64,17 +66,21 @@ function BillsCard({ overview }: { overview: Overview }) {
         </CardAction>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y">
-          {shown.map((due) => (
-            <BillDueRow
-              key={`${due.bill.id}:${due.month}`}
-              due={due}
-              category={categoryById.get(due.bill.category_id)}
-              today={overview.today}
-              onPayDifferently={setPaying}
-            />
-          ))}
-        </ul>
+        {shown.length > 0 ? (
+          <ul className="divide-y">
+            {shown.map((due) => (
+              <BillDueRow
+                key={`${due.bill.id}:${due.month}`}
+                due={due}
+                category={categoryById.get(due.bill.category_id)}
+                today={overview.today}
+                onPayDifferently={setPaying}
+              />
+            ))}
+          </ul>
+        ) : (
+          <p className="text-muted-foreground">All of this month&apos;s bills are paid.</p>
+        )}
       </CardContent>
       <PayBillDialog due={paying} accounts={overview.accounts} onClose={() => setPaying(null)} />
     </Card>
@@ -131,6 +137,10 @@ function Dashboard({ overview }: { overview: Overview }) {
   const { moneyIn, moneyOut } = inAndOut(monthSpending, overview.openingBalanceId);
   // Bills still to pay this month (and last month's unconfirmed ones)
   const billsLeft = unpaidTotal(overview.billDues);
+  // Optionally counts settle-ups as if everyone had paid: + what friends owe you, − what you owe them
+  const { owedToYou, youOwe } = overview.owed;
+  const hasOwed = owedToYou > 0 || youOwe > 0;
+  const balance = available + (overview.countOwed ? owedToYou - youOwe : 0);
   const { day, of } = dayOfMonth(today);
   const inDays = dailyTotals(monthSpending, "income", of, overview.openingBalanceId);
   const outDays = dailyTotals(monthSpending, "expense", of);
@@ -160,11 +170,12 @@ function Dashboard({ overview }: { overview: Overview }) {
         <Card className="col-span-2 xl:col-span-1 [--card-spacing:--spacing(3)] md:[--card-spacing:--spacing(4)]">
           <CardContent className="flex h-full flex-col gap-1">
             <span className={statLabel}>Available balance</span>
-            <span className={`text-2xl font-bold tabular-nums md:text-3xl ${available < 0 ? "text-expense" : ""}`}>
-              {formatPeso(available)}
+            <span className={`text-2xl font-bold tabular-nums md:text-3xl ${balance < 0 ? "text-expense" : ""}`}>
+              {formatPeso(balance)}
             </span>
             <span className="text-sm text-muted-foreground">
               Across {activeAccounts.length} {activeAccounts.length === 1 ? "account" : "accounts"}
+              {overview.countOwed && hasOwed && ", once friends settle up"}
             </span>
             <div className="mt-auto flex items-center justify-between gap-2 border-t pt-2 text-sm md:pt-3">
               <span className="text-muted-foreground">Net this month</span>
@@ -177,10 +188,25 @@ function Dashboard({ overview }: { overview: Overview }) {
                 <Link href="/bills" className="text-muted-foreground underline-offset-4 hover:underline">
                   After bills
                 </Link>
-                <span className={`font-semibold tabular-nums ${available - billsLeft < 0 ? "text-expense" : ""}`}>
-                  {formatPeso(available - billsLeft)}
+                <span className={`font-semibold tabular-nums ${balance - billsLeft < 0 ? "text-expense" : ""}`}>
+                  {formatPeso(balance - billsLeft)}
                 </span>
               </div>
+            )}
+            {(hasOwed || overview.countOwed) && (
+              <label className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-muted-foreground">
+                  Count settle-ups{" "}
+                  <span className="tabular-nums">
+                    ({formatSignedPeso(Math.abs(owedToYou - youOwe), owedToYou >= youOwe ? "in" : "out")})
+                  </span>
+                </span>
+                <Switch
+                  checked={overview.countOwed}
+                  onCheckedChange={(on) => void setMeta("countOwed", on)}
+                  aria-label="Add what friends owe you to the balance, and take off what you owe"
+                />
+              </label>
             )}
           </CardContent>
         </Card>

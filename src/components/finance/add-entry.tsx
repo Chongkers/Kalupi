@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ScanScreenshot } from "@/components/finance/scan-screenshot";
 import { TransactionForm } from "@/components/finance/transaction-form";
@@ -33,8 +34,27 @@ const addEntryStore = {
 const serverState = { open: false, mounted: false };
 const useAddEntry = () => useSyncExternalStore(addEntryStore.subscribe, addEntryStore.get, () => serverState);
 
-/** Scan a screenshot, then the entry form. Used by the modal and the /add page. */
+/**
+ * Scan a screenshot, then the entry form. Used by the modal and the /add page. Starts empty after
+ * every save: pages are kept when you navigate away (cacheComponents), so /add would otherwise come
+ * back with the last entry still filled in.
+ */
 export function AddEntryForm({ onSaved }: { onSaved?: () => void }) {
+  const [round, setRound] = useState(0);
+  const router = useRouter();
+  return (
+    <AddEntryFields
+      key={round}
+      onSaved={() => {
+        setRound((r) => r + 1);
+        if (onSaved) onSaved();
+        else router.push("/transactions");
+      }}
+    />
+  );
+}
+
+function AddEntryFields({ onSaved }: { onSaved: () => void }) {
   const overview = useOverview();
   const [scanned, setScanned] = useState<number | null>(null);
 

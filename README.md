@@ -23,6 +23,12 @@ No migration.
 - Add entry opens as a modal (the ₱ button in the bottom bar and the dashboard's Add entry button) instead of a new page. Saving closes it; the /add page still works for links.
 - Upcoming bills sits right under the numbers on the dashboard, so what's due shows without scrolling.
 - Preset order (Most frequent, Latest added, First added) is picked in Settings → Presets; the dashboard's Quick add and the presets in Add entry follow it. It's remembered on each device.
+- Upcoming bills shows whenever you have bills (it used to hide when nothing was due within 14 days), with "All paid" once the month's are done.
+- Settle-up trackers: paybacks can be edited (amount, account, date), not just deleted.
+- Dashboard: a "Count settle-ups" switch under the available balance adds what friends owe you and takes off what you owe, as if everyone had settled. Remembered on each device.
+- Fix: Add entry starts empty after saving instead of keeping the last entry.
+- Fix: turning on bill reminders said notifications were blocked when they weren't (the permission prompt was asked too late after the tap). Also says when reminders aren't set up on the server, instead of blaming the browser.
+- Budget dial: smaller percentage.
 
 ### 1.0.4
 

@@ -11,6 +11,7 @@ import {
   completeSetup,
   deleteSplitEntry,
   deleteTransaction,
+  editPayback,
   ensureMonthBudget,
   importTarsi,
   leaveTracker,
@@ -412,6 +413,26 @@ describe("settle-up trackers (v1.0.3)", () => {
     expect(transactions.filter((t) => t.type === "settle_in").map((t) => t.amount).sort()).toEqual([13333, 20000]);
     expect(accountBalances(transactions).get("cash")).toBe(-100000 + 33333);
     expect(spendingView(transactions, shares).filter((t) => t.type === "income")).toEqual([]);
+  });
+
+  it("editing a payback changes its amount, account and date, but never past what was owed", async () => {
+    const { enzo, law, bill } = await setup();
+    await saveSplitBill({ ...bill, paidBy: YOU, participants: [YOU, enzo, law], mode: "equal" });
+    await db.accounts.put({ ...(await db.accounts.get("cash"))!, id: "gcash", name: "GCash", kind: "ewallet" });
+    await settleUp({ trackerId: bill.trackerId, personId: enzo, amount: "200", accountId: "cash", occurredOn: "2026-10-25" });
+    const [payback] = (await live()).transactions.filter((t) => t.type === "settle_in");
+    const edit = { id: payback.id, accountId: "gcash", occurredOn: "2026-10-24" };
+
+    // Enzo owed ₱333.33 before this payback, not the ₱133.33 left after it
+    expect((await editPayback({ ...edit, amount: "400" })).error).toMatch(/more than the ₱333.33 Enzo owed you/);
+    expect(await editPayback({ ...edit, amount: "333.33" })).toEqual({});
+
+    const { transactions, shares } = await live();
+    expect(transactions.filter((t) => t.type === "settle_in")).toEqual([
+      expect.objectContaining({ id: payback.id, amount: 33333, account_id: "gcash", occurred_on: "2026-10-24" }),
+    ]);
+    expect(personBalances(shares).get(enzo)).toBe(0);
+    expect(accountBalances(transactions).get("gcash")).toBe(33333);
   });
 
   it("you owe a friend: paying them back takes money out of the account", async () => {

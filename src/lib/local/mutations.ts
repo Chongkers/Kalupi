@@ -814,6 +814,47 @@ export async function settleUp(input: SettleInput): Promise<Result> {
   return {};
 }
 
+export type EditPaybackInput = {
+  /** The payback's transaction */
+  id: string;
+  amount: string;
+  accountId: string;
+  occurredOn: string;
+};
+
+/** Change a payback's amount, account or date. Like settleUp, never more than was owed before it. */
+export async function editPayback(input: EditPaybackInput): Promise<Result> {
+  const payback = await db.transactions.get(input.id);
+  if (!payback || payback.deleted_at || (payback.type !== "settle_in" && payback.type !== "settle_out")) {
+    return { error: "That payback was removed." };
+  }
+  const tracker = await splitTracker(payback.tracker_id ?? "");
+  if (!tracker) return { error: "You can't change paybacks on this tracker." };
+  const share = live(await db.split_shares.where("tracker_id").equals(tracker.id).toArray()).find(
+    (s) => s.transaction_id === payback.id,
+  );
+  const person = share && (await db.split_people.get(share.person_id));
+  if (!share || !person) return { error: "That payback was removed." };
+
+  const amount = parsePeso(input.amount);
+  if (amount === null) return { error: "Enter an amount, like 250." };
+  if (!input.accountId) return { error: "Pick an account." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.occurredOn)) return { error: "Pick a date." };
+
+  // What was owed with this payback left out
+  const theyPay = payback.type === "settle_in";
+  const owed = Math.abs((await balanceOf(tracker.id, person.id)) - share.amount);
+  if (amount > owed) {
+    return { error: `That's more than the ${formatPeso(owed)} ${theyPay ? `${person.name} owed you` : `you owed ${person.name}`}.` };
+  }
+
+  await write([
+    { table: "transactions", row: { ...payback, amount, account_id: input.accountId, occurred_on: input.occurredOn } },
+    { table: "split_shares", row: { ...share, amount: theyPay ? -amount : amount, occurred_on: input.occurredOn } },
+  ]);
+  return {};
+}
+
 // ---------------------------------------------------------------------------
 // Presets (Phase 8)
 // ---------------------------------------------------------------------------

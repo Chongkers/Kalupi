@@ -11,6 +11,7 @@ const HINTS: Record<PushState, string> = {
   blocked: "Notifications are blocked. Allow them for Kalupi in your browser or phone settings, then try again.",
   "needs-install": "On iPhone, add Kalupi to your Home Screen first (Share → Add to Home Screen), then turn this on there.",
   unsupported: "This browser can't show notifications.",
+  "not-configured": "Reminders aren't set up on the server yet.",
 };
 
 /** Bill reminders on this device (v1.0.4). Each phone or browser turns them on separately. */
