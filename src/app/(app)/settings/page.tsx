@@ -11,6 +11,7 @@ import { LegalDialog } from "@/components/legal/legal-dialog";
 import { useLocalProfile } from "@/lib/local/hooks";
 import { DeleteAccount } from "./delete-account";
 import { ProfileForm } from "./profile-form";
+import { RemindersToggle } from "./reminders";
 import { ThemePicker } from "./theme-picker";
 import { version } from "../../../../package.json";
 
@@ -68,6 +69,11 @@ export default function SettingsPage() {
                 </Link>
               </Button>
               <Button asChild variant="outline" size="lg" className="h-11 justify-between">
+                <Link href="/bills">
+                  Bills <ChevronRight />
+                </Link>
+              </Button>
+              <Button asChild variant="outline" size="lg" className="h-11 justify-between">
                 <Link href="/settings/presets">
                   Presets <ChevronRight />
                 </Link>
@@ -77,6 +83,16 @@ export default function SettingsPage() {
                   Import from CSV <ChevronRight />
                 </Link>
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg font-semibold">Notifications</CardTitle>
+              <CardDescription>On this device only.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RemindersToggle />
             </CardContent>
           </Card>
 

@@ -1,6 +1,8 @@
+import Link from "next/link";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  ChevronRight,
   Flame,
   Gauge,
   Target,
@@ -176,13 +178,17 @@ function pointOnArc(fraction: number, radius: number) {
 export function BudgetDial({
   budget,
   today,
+  committed = 0,
 }: {
   budget: BudgetSummary;
   today: DateString;
+  /** Bills still to pay this month (v1.0.4): kept out of "Safe to spend" */
+  committed?: number;
 }) {
   const { day, of } = dayOfMonth(today);
   const daysLeft = of - day + 1; // today counts
   const left = budget.totalLimit - budget.totalSpent;
+  const spendable = Math.max(0, left - committed);
   const over = left < 0;
   const pace = (day / of) * 100; // where an even spender would be by end of today
   const fill = Math.min(100, Math.max(0, budget.percentUsed));
@@ -214,6 +220,23 @@ export function BudgetDial({
 
   return (
     <div className="flex h-full flex-col gap-3">
+      {/* Title row carries the status badge: the column beside the dial is too narrow for it */}
+      <div className="flex items-center justify-between gap-2">
+        {/* The way in to editing limits on phones: the bottom bar has no Budget tab */}
+        <Link
+          href="/budgets"
+          className={cn(statLabel, "-my-2 inline-flex items-center gap-0.5 py-2 hover:text-foreground")}
+        >
+          Budget used
+          <ChevronRight className="size-3.5" />
+        </Link>
+        <span
+          className={cn(pill, "shrink-0 whitespace-nowrap", status.className)}
+        >
+          <StatusIcon className="size-3.5" />
+          {status.label}
+        </span>
+      </div>
       <div className="flex items-center gap-4">
         <div className="relative size-20 shrink-0 md:size-28">
           <svg viewBox="0 0 100 100" className="size-full" aria-hidden>
@@ -278,16 +301,6 @@ export function BudgetDial({
         </div>
 
         <div className="flex min-w-0 flex-col gap-1.5">
-          <span
-            className={cn(
-              pill,
-              "self-start whitespace-nowrap",
-              status.className,
-            )}
-          >
-            <StatusIcon className="size-3.5" />
-            {status.label}
-          </span>
           <span className="flex flex-col leading-tight tabular-nums">
             <span
               className={cn("text-base font-semibold", over && "text-expense")}
@@ -303,14 +316,14 @@ export function BudgetDial({
       </div>
       <div className="mt-auto flex items-center justify-between gap-2 border-t pt-2 text-sm md:pt-3">
         <span className="text-muted-foreground">
-          {over ? "Over by" : "Safe to spend"}
+          {over ? "Over by" : committed > 0 ? "Safe after bills" : "Safe to spend"}
         </span>
         <span
           className={cn("font-semibold tabular-nums", over && "text-expense")}
         >
           {over
             ? formatPeso(-left, { whole: true })
-            : `${formatPeso(Math.floor(left / daysLeft), { whole: true })} a day`}
+            : `${formatPeso(Math.floor(spendable / daysLeft), { whole: true })} a day`}
         </span>
       </div>
     </div>

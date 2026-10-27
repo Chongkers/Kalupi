@@ -44,7 +44,7 @@ export async function updateSession(request: NextRequest) {
 }
 
 // Auth pages, plus what the installed app needs before anyone logs in
-const publicPaths = ["/login", "/signup", "/forgot-password", "/auth/", "/serwist/", "/~offline", "/manifest.webmanifest", "/icons/", "/tesseract/", "/api/keep-alive"];
+const publicPaths = ["/login", "/signup", "/forgot-password", "/auth/", "/serwist/", "/~offline", "/manifest.webmanifest", "/icons/", "/tesseract/", "/api/daily"];
 
 // A redirect is a new response, so carry over any refreshed session cookies
 function redirectKeepingCookies(request: NextRequest, response: NextResponse, pathname: string, next?: string | null) {

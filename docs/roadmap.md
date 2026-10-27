@@ -107,7 +107,7 @@
 - [ ] Run migration `20261024000000_trackers_presets_launch.sql` in Supabase (before using the new features)
 - [ ] Deploy to Vercel with env vars `[claude]` (steps in [launch.md](launch.md))
 - [ ] Supabase Auth: Site URL and redirect URLs set to the Vercel domain
-- [x] Daily keep-alive cron so the free project never pauses `[claude]` (`vercel.json` + `/api/keep-alive`; needs `CRON_SECRET`)
+- [x] Daily keep-alive cron so the free project never pauses `[claude]` (`vercel.json` + `/api/daily`; needs `CRON_SECRET`)
 - [x] Automated tests (Vitest, `npm test`): money, dates, budget, guardrail, trackers, scan, and the local mutations
 - [ ] Install on both phones (iOS: Safari → Share → Add to Home Screen; Android: Install app)
 - [ ] One week of real use; fix what comes up
@@ -146,10 +146,33 @@ A new tracker asks: **settling up after an event**, or **saving up for something
 
 **Later (1.1):** shared settle-up trackers. Link a name to a Kalupi account via the invite link, everyone in the group sees the bills, either side can record a payment, and debts are simplified (A→B→C becomes A→C).
 
+## Version 1.3.0 (planned): Monthly bills
+
+**Goal:** see what's coming before it's due (rent, load, internet, Spotify, SPayLater) and log a bill in one tap when you pay it.
+
+**How it works (proposed):**
+- A bill has a name, amount, category, account, due day of the month (1–31; a 31st bill is due on the last day of short months) and an optional end date or number of payments, for things like installments.
+- Bills are reminders, not entries: nothing touches your balance until you tap **Paid**. That logs a normal expense with today's date and the bill's details (amount editable, like a preset), and marks that month's bill as paid.
+- Available balance stays real money. A new **"After bills"** figure shows available minus the bills still unpaid this month.
+- The dashboard gets an **Upcoming bills** card: due soon, overdue in red, and paid with a check.
+- The budget can show bills as already committed, so "Safe to spend ₱X a day" leaves room for them.
+
+**Data:** a `bills` table (synced like presets) and a `bill_payments` table (bill, month, transaction), so each month's paid or unpaid status syncs across devices.
+
+- [ ] Migration: `bills`, `bill_payments`, RLS (owner only)
+- [ ] Add, edit, pause and end bills (Settings → Bills)
+- [ ] Due dates per month, including short months, end dates and installment counts
+- [ ] Dashboard "Upcoming bills" card and an "After bills" figure
+- [ ] Pay a bill: logs the expense, links it, can be undone by deleting the entry
+- [ ] Budget: count unpaid bills as committed in "Safe to spend"
+- [ ] Optional: a browser notification the day before a bill is due (needs push, see below)
+- [ ] Tests for due-date math and paying or unpaying a bill
+
 ## After the MVP
 
-- Push notifications (over budget, friend contributed)
+- Push notifications (over budget, friend contributed, bill due)
 - Charts and spending trends
-- Recurring transactions (rent, subscriptions)
+- Recurring income (salary, allowance), the same way as bills
+- CSV export
 - CSV export
 - Native app wrapper (Capacitor) if the PWA isn't enough

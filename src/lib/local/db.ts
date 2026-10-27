@@ -118,6 +118,31 @@ export type SplitShareRow = Synced & {
   created_at: string;
 };
 
+/** A monthly bill (v1.0.4): a reminder that becomes an expense when confirmed. */
+export type BillRow = Synced & {
+  id: string;
+  user_id: string;
+  name: string;
+  amount: number;
+  category_id: string;
+  account_id: string | null;
+  due_day: number;
+  starts_on: string;
+  ends_on: string | null;
+  archived_at: string | null;
+  created_at: string;
+};
+
+/** One bill, one month: paid (with the expense it logged) or skipped (transaction_id null). */
+export type BillPaymentRow = Synced & {
+  id: string;
+  user_id: string;
+  bill_id: string;
+  month: string;
+  transaction_id: string | null;
+  created_at: string;
+};
+
 export type TableRows = {
   accounts: AccountRow;
   categories: CategoryRow;
@@ -129,6 +154,8 @@ export type TableRows = {
   tracker_members: TrackerMemberRow;
   split_people: SplitPersonRow;
   split_shares: SplitShareRow;
+  bills: BillRow;
+  bill_payments: BillPaymentRow;
 };
 
 export type SyncedTable = keyof TableRows;
@@ -145,6 +172,8 @@ export const SYNCED_TABLES: SyncedTable[] = [
   "transactions",
   "split_shares",
   "presets",
+  "bills",
+  "bill_payments",
 ];
 
 /** A local change waiting to be sent to Supabase. Sent in `seq` order. */
@@ -181,6 +210,8 @@ class KalupiDB extends Dexie {
   tracker_members!: Dexie.Table<TrackerMemberRow, [string, string]>;
   split_people!: EntityTable<SplitPersonRow, "id">;
   split_shares!: EntityTable<SplitShareRow, "id">;
+  bills!: EntityTable<BillRow, "id">;
+  bill_payments!: EntityTable<BillPaymentRow, "id">;
   outbox!: EntityTable<OutboxEntry, "seq">;
   meta!: EntityTable<MetaEntry, "key">;
 
@@ -203,6 +234,11 @@ class KalupiDB extends Dexie {
     this.version(2).stores({
       split_people: "id, tracker_id",
       split_shares: "id, tracker_id, transaction_id",
+    });
+    // v1.0.4: monthly bills
+    this.version(3).stores({
+      bills: "id",
+      bill_payments: "id, bill_id, transaction_id",
     });
   }
 }

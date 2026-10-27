@@ -21,7 +21,10 @@ Run them before using the new screens: until they're in, the server refuses the 
    | `NEXT_PUBLIC_SUPABASE_URL` | same as `.env.local` |
    | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | same as `.env.local` |
    | `CRON_SECRET` | any long random string, e.g. from `openssl rand -hex 32` |
-4. Deploy. The cron in `vercel.json` calls `/api/keep-alive` once a day (01:00 UTC).
+   | `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | same as `.env.local` (bill reminders, v1.0.4) |
+   | `VAPID_PRIVATE_KEY` | same as `.env.local` |
+   | `SUPABASE_SERVICE_ROLE_KEY` | Supabase → Project Settings → API Keys → **secret** key. Server only, never shared |
+4. Deploy. The cron in `vercel.json` calls `/api/daily` once a day (01:00 UTC, 9:00 AM in Manila): it keeps Supabase awake and sends bill reminders.
    Check it under Project → Settings → Cron Jobs; "Run" should return `{"ok":true}`.
 
 ## 3. Supabase Auth URLs

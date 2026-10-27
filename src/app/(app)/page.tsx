@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { HandCoins, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
@@ -7,6 +8,7 @@ import { SetupDialog } from "@/components/setup/setup-dialog";
 import { BudgetBar } from "@/components/finance/budget-bar";
 import { AccountIcon } from "@/components/finance/category-icon";
 import { QuickAdd } from "@/components/finance/quick-add";
+import { BillDueRow, PayBillDialog } from "@/components/bills/bill-due";
 import { ProgressRing } from "@/components/trackers/progress-ring";
 import { BudgetDial, FlowStat, noSpendStreak, StreakPill } from "@/components/finance/month-stats";
 import { TransactionList } from "@/components/finance/transaction-list";
@@ -15,6 +17,7 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Skeleton } from "@/components/ui/skeleton";
 import { addMonths, dayOfMonth, formatMonth, monthStart } from "@/lib/dates";
 import { dailyTotals, groupByDay, inAndOut } from "@/lib/finance/list";
+import { needsConfirming, unpaidTotal, type BillDue } from "@/lib/finance/bills";
 import { ACCOUNT_KIND_LABELS } from "@/lib/finance/types";
 import { useOverview, useTrackers, type Overview } from "@/lib/local/hooks";
 import { formatPeso, formatSignedPeso } from "@/lib/money";
@@ -39,6 +42,42 @@ function splitLine(owedToYou: number, youOwe: number) {
   ]
     .filter(Boolean)
     .join(" · ");
+}
+
+/** Bills due today or overdue (one tap to pay), then the next few coming up. */
+function BillsCard({ overview }: { overview: Overview }) {
+  const [paying, setPaying] = useState<BillDue | null>(null);
+  const open = overview.billDues.filter((d) => d.status !== "paid" && d.status !== "skipped");
+  const shown = [...needsConfirming(open), ...open.filter((d) => d.status === "upcoming" && d.daysAway <= 14)].slice(0, 4);
+  if (overview.bills.length === 0 || shown.length === 0) return null;
+  const categoryById = new Map(overview.categories.map((c) => [c.id, c]));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg font-semibold">Upcoming bills</CardTitle>
+        <CardAction>
+          <Link href="/bills" className={linkClass}>
+            See all
+          </Link>
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y">
+          {shown.map((due) => (
+            <BillDueRow
+              key={`${due.bill.id}:${due.month}`}
+              due={due}
+              category={categoryById.get(due.bill.category_id)}
+              today={overview.today}
+              onPayDifferently={setPaying}
+            />
+          ))}
+        </ul>
+      </CardContent>
+      <PayBillDialog due={paying} accounts={overview.accounts} onClose={() => setPaying(null)} />
+    </Card>
+  );
 }
 
 function TrackersCard() {
@@ -89,6 +128,8 @@ function Dashboard({ overview }: { overview: Overview }) {
   // Spending counts your share of split bills, not what you fronted for friends
   const { accounts, categories, available, budget, today, monthSpending } = overview;
   const { moneyIn, moneyOut } = inAndOut(monthSpending, overview.openingBalanceId);
+  // Bills still to pay this month (and last month's unconfirmed ones)
+  const billsLeft = unpaidTotal(overview.billDues);
   const { day, of } = dayOfMonth(today);
   const inDays = dailyTotals(monthSpending, "income", of, overview.openingBalanceId);
   const outDays = dailyTotals(monthSpending, "expense", of);
@@ -130,6 +171,16 @@ function Dashboard({ overview }: { overview: Overview }) {
                 {formatSignedPeso(Math.abs(net), net < 0 ? "out" : "in")}
               </span>
             </div>
+            {billsLeft > 0 && (
+              <div className="flex items-center justify-between gap-2 text-sm">
+                <Link href="/bills" className="text-muted-foreground underline-offset-4 hover:underline">
+                  After bills
+                </Link>
+                <span className={`font-semibold tabular-nums ${available - billsLeft < 0 ? "text-expense" : ""}`}>
+                  {formatPeso(available - billsLeft)}
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card className="[--card-spacing:--spacing(3)] md:[--card-spacing:--spacing(4)]">
@@ -165,13 +216,16 @@ function Dashboard({ overview }: { overview: Overview }) {
         </Card>
         <Card className="col-span-2 xl:col-span-1 [--card-spacing:--spacing(3)] md:[--card-spacing:--spacing(4)]">
           <CardContent className="flex h-full flex-col gap-2 md:gap-3">
-            <span className={statLabel}>Budget used</span>
+            {/* BudgetDial has its own title row, with the status badge */}
             {budget && budget.totalLimit > 0 ? (
-              <BudgetDial budget={budget} today={today} />
+              <BudgetDial budget={budget} today={today} committed={billsLeft} />
             ) : (
-              <Link href="/budgets" className={linkClass}>
-                Set a monthly budget
-              </Link>
+              <>
+                <span className={statLabel}>Budget used</span>
+                <Link href="/budgets" className={linkClass}>
+                  Set a monthly budget
+                </Link>
+              </>
             )}
           </CardContent>
         </Card>
@@ -197,6 +251,8 @@ function Dashboard({ overview }: { overview: Overview }) {
         </Card>
 
         <div className="flex flex-col gap-6">
+          <BillsCard overview={overview} />
+
           <TrackersCard />
 
           {budget && budget.lines.length > 0 && (

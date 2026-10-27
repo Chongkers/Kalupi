@@ -2,6 +2,7 @@
 // rows in the outbox in one IndexedDB transaction, so the screen updates instantly (even
 // offline) and sync.ts sends them to Supabase when it can.
 import { monthStart, today, type DateString } from "@/lib/dates";
+import { dueDateIn, endAfterPayments } from "@/lib/finance/bills";
 import { isColor, isIcon } from "@/lib/finance/category-style";
 import type { ImportPlan } from "@/lib/import/tarsi";
 import { personBalances, splitEvenly } from "@/lib/finance/splits";
@@ -12,6 +13,8 @@ import {
   getMeta,
   rowKey,
   type AccountRow,
+  type BillPaymentRow,
+  type BillRow,
   type BudgetItemRow,
   type BudgetRow,
   type CategoryRow,
@@ -187,9 +190,12 @@ export async function deleteTransaction(transactionId: string): Promise<Result> 
   if (!existing || existing.deleted_at) return {};
   // A split bill or payback takes its shares with it
   const shares = live(await db.split_shares.where("transaction_id").equals(transactionId).toArray());
+  // A bill's expense: the bill is due again for that month
+  const billPayments = live(await db.bill_payments.where("transaction_id").equals(transactionId).toArray());
   await write([
     { table: "transactions", row: { ...existing, deleted_at: nowIso() } },
     ...shares.map((share): Change => ({ table: "split_shares", row: { ...share, deleted_at: nowIso() } })),
+    ...billPayments.map((p): Change => ({ table: "bill_payments", row: { ...p, deleted_at: nowIso() } })),
   ]);
   return {};
 }
@@ -903,6 +909,167 @@ export async function logPreset(presetId: string, amount: string, accountId: str
 }
 
 // ---------------------------------------------------------------------------
+// Monthly bills (v1.0.4)
+// ---------------------------------------------------------------------------
+
+export type BillInput = {
+  id?: string;
+  name: string;
+  amount: string;
+  categoryId: string;
+  /** "" = pick when paying */
+  accountId: string;
+  dueDay: number;
+  /** First month it's due ("2026-11-01") */
+  startsOn: string;
+  /** "" = every month until ended; otherwise the number of payments (installments) */
+  payments: string;
+};
+
+export async function saveBill(input: BillInput): Promise<Result> {
+  const name = input.name.trim();
+  const amount = parsePeso(input.amount);
+  if (!name) return { error: "Give the bill a name." };
+  if (name.length > 40) return { error: "Keep the name to 40 characters or fewer." };
+  if (amount === null) return { error: "Enter an amount, like 1500." };
+  const category = await db.categories.get(input.categoryId);
+  if (!category || category.deleted_at || category.kind !== "expense") return { error: "Pick a category." };
+  if (!Number.isInteger(input.dueDay) || input.dueDay < 1 || input.dueDay > 31) return { error: "Pick the day it's due." };
+  if (!/^\d{4}-\d{2}-01$/.test(input.startsOn)) return { error: "Pick the first month it's due." };
+  const payments = input.payments.trim() === "" ? null : Number(input.payments);
+  if (payments !== null && (!Number.isInteger(payments) || payments < 1 || payments > 360)) {
+    return { error: "Enter how many payments, like 6, or leave it blank." };
+  }
+
+  const fields = {
+    name,
+    amount,
+    category_id: category.id,
+    account_id: input.accountId || null,
+    due_day: input.dueDay,
+    starts_on: input.startsOn,
+    ends_on: payments === null ? null : endAfterPayments(input.startsOn, payments),
+  };
+
+  if (input.id) {
+    const existing = await db.bills.get(input.id);
+    if (!existing || existing.deleted_at) return { error: "That bill was removed." };
+    await write([{ table: "bills", row: { ...existing, ...fields } }]);
+  } else {
+    const row: BillRow = {
+      ...fields,
+      id: id(),
+      user_id: await userId(),
+      archived_at: null,
+      created_at: nowIso(),
+      updated_at: nowIso(),
+      deleted_at: null,
+    };
+    await write([{ table: "bills", row }]);
+  }
+  return {};
+}
+
+/** Stop a bill (no more reminders); past payments stay. Restoring brings it back. */
+export async function setBillEnded(billId: string, ended: boolean): Promise<Result> {
+  const bill = await db.bills.get(billId);
+  if (!bill || bill.deleted_at) return { error: "That bill was removed." };
+  await write([{ table: "bills", row: { ...bill, archived_at: ended ? nowIso() : null } }]);
+  return {};
+}
+
+/** The month's payment row, even a removed one: (bill, month) is unique on the server, so it's reused. */
+async function paymentRowFor(billId: string, month: DateString) {
+  return (await db.bill_payments.where("bill_id").equals(billId).toArray()).find((p) => p.month === month);
+}
+
+/**
+ * One-tap confirm: logs the bill as an expense and marks that month paid. Dated on the due date
+ * (or today, when paying ahead), so an on-time bill confirmed late still lands on the right day.
+ */
+export async function payBill(
+  billId: string,
+  month: DateString,
+  options: { amount?: string; accountId?: string } = {},
+): Promise<Result> {
+  const bill = await db.bills.get(billId);
+  if (!bill || bill.deleted_at) return { error: "That bill was removed." };
+  const existing = await paymentRowFor(billId, month);
+  if (existing && !existing.deleted_at) return { error: "That bill is already settled for this month." };
+
+  const amount = options.amount === undefined ? bill.amount : parsePeso(options.amount);
+  if (amount === null) return { error: "Enter an amount, like 1500." };
+  const accounts = live(await db.accounts.toArray()).filter((a) => !a.archived_at);
+  const accountId = options.accountId || (accounts.some((a) => a.id === bill.account_id) ? bill.account_id : accounts[0]?.id);
+  if (!accountId) return { error: "Add an account first." };
+
+  const dueOn = dueDateIn(bill.due_day, month);
+  const now = today();
+  const user = await userId();
+  const expense: TransactionRow = {
+    id: id(),
+    user_id: user,
+    type: "expense",
+    amount,
+    account_id: accountId,
+    to_account_id: null,
+    category_id: bill.category_id,
+    tracker_id: null,
+    occurred_on: dueOn <= now ? dueOn : now,
+    note: bill.name,
+    source: "manual",
+    created_at: nowIso(),
+    updated_at: nowIso(),
+    deleted_at: null,
+  };
+  const payment: BillPaymentRow = {
+    ...(existing ?? { id: id(), created_at: nowIso() }),
+    user_id: user,
+    bill_id: billId,
+    month,
+    transaction_id: expense.id,
+    updated_at: nowIso(),
+    deleted_at: null,
+  };
+  // Expense first: the payment points at it
+  await write([
+    { table: "transactions", row: expense },
+    { table: "bill_payments", row: payment },
+  ]);
+  return {};
+}
+
+/** Not paying it this month (paid elsewhere, waived): stops the reminder without logging anything. */
+export async function skipBill(billId: string, month: DateString): Promise<Result> {
+  const bill = await db.bills.get(billId);
+  if (!bill || bill.deleted_at) return { error: "That bill was removed." };
+  const existing = await paymentRowFor(billId, month);
+  if (existing && !existing.deleted_at) return { error: "That bill is already settled for this month." };
+  const row: BillPaymentRow = {
+    ...(existing ?? { id: id(), created_at: nowIso() }),
+    user_id: await userId(),
+    bill_id: billId,
+    month,
+    transaction_id: null,
+    updated_at: nowIso(),
+    deleted_at: null,
+  };
+  await write([{ table: "bill_payments", row }]);
+  return {};
+}
+
+/** Undo paid or skipped: the bill is due again, and a logged expense is removed with it. */
+export async function undoBillPayment(paymentId: string): Promise<Result> {
+  const payment = await db.bill_payments.get(paymentId);
+  if (!payment || payment.deleted_at) return {};
+  const changes: Change[] = [{ table: "bill_payments", row: { ...payment, deleted_at: nowIso() } }];
+  const expense = payment.transaction_id ? await db.transactions.get(payment.transaction_id) : undefined;
+  if (expense && !expense.deleted_at) changes.unshift({ table: "transactions", row: { ...expense, deleted_at: nowIso() } });
+  await write(changes);
+  return {};
+}
+
+// ---------------------------------------------------------------------------
 // Import from Tarsi (Settings → Import)
 // ---------------------------------------------------------------------------
 
@@ -928,7 +1095,10 @@ export async function importTarsi(plan: ImportPlan): Promise<Result & { added?: 
   const stamp = nowIso();
   const changes: Change[] = [];
 
-  // 1. Clear what's here
+  // 1. Clear what's here (bills stay, but their paid and skipped months go with the entries)
+  for (const p of live(await db.bill_payments.toArray())) {
+    changes.push({ table: "bill_payments", row: { ...p, deleted_at: stamp } });
+  }
   for (const share of live(await db.split_shares.toArray())) {
     changes.push({ table: "split_shares", row: { ...share, deleted_at: stamp } });
   }

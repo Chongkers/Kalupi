@@ -65,3 +65,46 @@ const serwist = new Serwist({
 });
 
 serwist.addEventListeners();
+
+// ---------------------------------------------------------------------------
+// Bill reminders (v1.0.4): shown when the daily cron pushes "due today".
+// Payload: { title, body, url, tag }. Tapping it opens the bill's pay dialog.
+// ---------------------------------------------------------------------------
+
+type PushPayload = { title?: string; body?: string; url?: string; tag?: string };
+
+self.addEventListener("push", (event) => {
+  let payload: PushPayload = {};
+  try {
+    payload = event.data?.json() ?? {};
+  } catch {
+    payload = { body: event.data?.text() };
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title ?? "Kalupi", {
+      body: payload.body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: payload.tag,
+      data: { url: payload.url ?? "/bills" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL((event.notification.data as { url?: string })?.url ?? "/bills", self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      // Reuse an open Kalupi window if there is one
+      const open = windows.find((w) => new URL(w.url).origin === self.location.origin);
+      if (open) {
+        await open.focus();
+        await open.navigate(url);
+      } else {
+        await self.clients.openWindow(url);
+      }
+    })(),
+  );
+});

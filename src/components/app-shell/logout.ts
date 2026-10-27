@@ -3,6 +3,7 @@
 import { logout as serverLogout } from "@/lib/auth/actions";
 import { clearLocalData, db } from "@/lib/local/db";
 import { stopSync } from "@/lib/local/sync";
+import { disablePush } from "@/lib/push/client";
 
 // ---------------------------------------------------------------------------
 // Logging-out flag, read by LocalDataProvider (useSyncExternalStore) to hide the app.
@@ -37,6 +38,8 @@ export async function logOutOfDevice() {
 
   setLoggingOut(true);
   await stopSync();
+  // Bill reminders belong to whoever was logged in
+  await disablePush().catch(() => {});
   try {
     await serverLogout();
   } catch {

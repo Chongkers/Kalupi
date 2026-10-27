@@ -4,6 +4,7 @@ import { useSyncExternalStore } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { monthEnd, monthStart, today, type DateString } from "@/lib/dates";
 import { accountBalances, availableBalance } from "@/lib/finance/balances";
+import { billsDue } from "@/lib/finance/bills";
 import { summarizeBudget } from "@/lib/finance/budget";
 import { owedTotals, personBalances, spendingView, splitEntries } from "@/lib/finance/splits";
 import { trackerMembers, type ProgressRow } from "@/lib/finance/trackers";
@@ -22,13 +23,15 @@ export function useOverview() {
   return useLiveQuery(async () => {
     const now = today();
     const month = monthStart(now);
-    const [accountRows, categoryRows, transactionRows, budgets, presetRows, shareRows] = await Promise.all([
+    const [accountRows, categoryRows, transactionRows, budgets, presetRows, shareRows, billRows, billPaymentRows] = await Promise.all([
       db.accounts.toArray(),
       db.categories.toArray(),
       db.transactions.toArray(),
       db.budgets.toArray(),
       db.presets.toArray(),
       db.split_shares.toArray(),
+      db.bills.toArray(),
+      db.bill_payments.toArray(),
     ]);
 
     const accounts: Account[] = live(accountRows).sort((a, b) => a.created_at.localeCompare(b.created_at));
@@ -64,6 +67,10 @@ export function useOverview() {
       monthBudget,
       budget: monthBudget ? summarizeBudget(monthBudget.items, categories, monthSpending, monthBudget.totalLimit) : null,
       presets: live(presetRows).sort((a, b) => a.name.localeCompare(b.name)),
+      /** Every bill, ended ones included (v1.0.4) */
+      bills: live(billRows).sort((a, b) => a.due_day - b.due_day || a.name.localeCompare(b.name)),
+      /** This month's bills (and last month's unconfirmed ones) with their status */
+      billDues: billsDue(live(billRows), live(billPaymentRows), now),
     };
   });
 }

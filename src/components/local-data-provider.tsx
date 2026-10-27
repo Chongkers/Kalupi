@@ -23,6 +23,7 @@ const APP_ROUTES = [
   "/transactions",
   "/transactions/edit",
   "/budgets",
+  "/bills",
   "/trackers",
   "/trackers/view",
   "/history",

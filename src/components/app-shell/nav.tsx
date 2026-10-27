@@ -3,13 +3,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, ChartPie, Goal, House, List, PhilippinePeso, SlidersHorizontal } from "lucide-react";
+import { CalendarDays, ChartPie, Goal, House, List, PhilippinePeso, ReceiptText, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const sidebarItems = [
   { href: "/", label: "Dashboard", icon: House },
   { href: "/transactions", label: "Transactions", icon: List },
   { href: "/budgets", label: "Budget", icon: ChartPie },
+  { href: "/bills", label: "Bills", icon: ReceiptText },
   { href: "/trackers", label: "Trackers", icon: Goal },
   { href: "/history", label: "History", icon: CalendarDays },
   { href: "/settings", label: "Settings", icon: SlidersHorizontal },

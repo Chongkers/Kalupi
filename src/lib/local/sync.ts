@@ -10,6 +10,9 @@ const PAGE_SIZE = 1000;
 const CURSOR_OVERLAP_MS = 2 * 60 * 1000;
 const RETRY_DELAYS_MS = [2_000, 5_000, 15_000, 30_000, 60_000];
 
+// PostgREST "table not in schema cache" and Postgres "relation does not exist"
+const MISSING_TABLE_CODES = new Set(["PGRST205", "42P01"]);
+
 const CONFLICT_TARGET: Partial<Record<SyncedTable, string>> = {
   tracker_members: "tracker_id,user_id",
 };
@@ -208,6 +211,12 @@ async function pull() {
       let query = supabase.from(table).select().order("updated_at").range(from, from + PAGE_SIZE - 1);
       if (since) query = query.gt("updated_at", since);
       const { data, error, status: httpStatus } = await query;
+      // A table this app version knows but the database doesn't have yet (its migration hasn't
+      // been run): skip it so everything else still syncs. It's picked up once the table exists.
+      if (error && MISSING_TABLE_CODES.has(error.code ?? "")) {
+        console.warn(`Sync: skipping ${table}; run its migration in Supabase.`);
+        break;
+      }
       if (error) throw isTransient(httpStatus, error) ? new TransientError(error.message) : new Error(error.message);
       if (!data?.length) break;
 
