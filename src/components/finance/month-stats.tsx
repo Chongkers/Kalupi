@@ -2,15 +2,16 @@ import Link from "next/link";
 import {
   ArrowDownRight,
   ArrowUpRight,
-  ChevronRight,
   Flame,
   Gauge,
+  Pencil,
   Target,
   TriangleAlert,
 } from "lucide-react";
 import { dayOfMonth, type DateString } from "@/lib/dates";
 import type { BudgetSummary } from "@/lib/finance/budget";
 import { formatPeso, formatSignedPeso } from "@/lib/money";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const statLabel =
@@ -222,14 +223,7 @@ export function BudgetDial({
     <div className="flex h-full flex-col gap-3">
       {/* Title row carries the status badge: the column beside the dial is too narrow for it */}
       <div className="flex items-center justify-between gap-2">
-        {/* The way in to editing limits on phones: the bottom bar has no Budget tab */}
-        <Link
-          href="/budgets"
-          className={cn(statLabel, "-my-2 inline-flex items-center gap-0.5 py-2 hover:text-foreground")}
-        >
-          Budget used
-          <ChevronRight className="size-3.5" />
-        </Link>
+        <span className={statLabel}>Budget used</span>
         <span
           className={cn(pill, "shrink-0 whitespace-nowrap", status.className)}
         >
@@ -288,8 +282,8 @@ export function BudgetDial({
               className={cn(
                 "font-bold tabular-nums",
                 percentText.length > 3
-                  ? "text-lg md:text-2xl"
-                  : "text-2xl md:text-3xl",
+                  ? "text-base md:text-xl"
+                  : "text-xl md:text-2xl",
               )}
             >
               {percentText}
@@ -312,6 +306,12 @@ export function BudgetDial({
               {daysLeft === 1 ? "day" : "days"} left
             </span>
           </span>
+          {/* The way in to editing limits on phones: the bottom bar has no Budget tab */}
+          <Button asChild size="sm" variant="outline" className="self-start border-primary/40 text-primary hover:bg-primary/10 hover:text-primary">
+            <Link href="/budgets">
+              <Pencil /> Edit budget
+            </Link>
+          </Button>
         </div>
       </div>
       <div className="mt-auto flex items-center justify-between gap-2 border-t pt-2 text-sm md:pt-3">

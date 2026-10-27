@@ -1,6 +1,6 @@
 {
   "name": "kalupi",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "private": true,
   "scripts": {
     "predev": "node scripts/copy-tesseract.mjs",

@@ -5,6 +5,7 @@ import { SyncStatus } from "@/components/app-shell/sync-status";
 import { CurrentUserMenu } from "@/components/app-shell/user-menu";
 import { LocalDataProvider } from "@/components/local-data-provider";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { AddEntryDialog } from "@/components/finance/add-entry";
 
 // Everything here renders on the device from local data, so the whole shell can be cached for offline use
 export default function AppLayout({ children }: LayoutProps<"/">) {
@@ -38,7 +39,10 @@ export default function AppLayout({ children }: LayoutProps<"/">) {
         </div>
 
         <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col gap-4 px-4 pt-4 pb-28 md:gap-6 md:px-8 md:pt-8 md:pb-8">
-          <LocalDataProvider>{children}</LocalDataProvider>
+          <LocalDataProvider>
+            {children}
+            <AddEntryDialog />
+          </LocalDataProvider>
         </main>
       </div>
 

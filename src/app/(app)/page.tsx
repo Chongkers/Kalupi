@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { AddEntryLink } from "@/components/finance/add-entry";
 import { HandCoins, Plus } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { SetupDialog } from "@/components/setup/setup-dialog";
@@ -222,14 +223,19 @@ function Dashboard({ overview }: { overview: Overview }) {
             ) : (
               <>
                 <span className={statLabel}>Budget used</span>
-                <Link href="/budgets" className={linkClass}>
-                  Set a monthly budget
-                </Link>
+                <Button asChild size="sm" className="self-start">
+                  <Link href="/budgets">
+                    <Plus /> Set a monthly budget
+                  </Link>
+                </Button>
               </>
             )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Right under the numbers, so what's due is seen without scrolling */}
+      <BillsCard overview={overview} />
 
       <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
         <Card>
@@ -251,8 +257,6 @@ function Dashboard({ overview }: { overview: Overview }) {
         </Card>
 
         <div className="flex flex-col gap-6">
-          <BillsCard overview={overview} />
-
           <TrackersCard />
 
           {budget && budget.lines.length > 0 && (
@@ -328,9 +332,9 @@ export default function DashboardPage() {
     <>
       <PageHeader title="Dashboard" description={overview ? <MonthLine today={overview.today} /> : "This month at a glance"}>
         <Button asChild size="lg" className="hidden md:inline-flex">
-          <Link href="/add">
+          <AddEntryLink>
             <Plus /> Add entry
-          </Link>
+          </AddEntryLink>
         </Button>
       </PageHeader>
       {overview ? <Dashboard overview={overview} /> : <DashboardSkeleton />}

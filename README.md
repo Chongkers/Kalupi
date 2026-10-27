@@ -16,6 +16,25 @@ Personal budget and savings tracker for two users. Next.js (App Router) + TypeSc
 
 Newest first. Each version that changes the database has a migration in [supabase/migrations/](supabase/migrations/); run it in the Supabase SQL Editor before deploying that version.
 
+### 1.0.5
+
+No migration.
+
+- Add entry opens as a modal (the ₱ button in the bottom bar and the dashboard's Add entry button) instead of a new page. Saving closes it; the /add page still works for links.
+- Upcoming bills sits right under the numbers on the dashboard, so what's due shows without scrolling.
+- Preset order (Most frequent, Latest added, First added) is picked in Settings → Presets; the dashboard's Quick add and the presets in Add entry follow it. It's remembered on each device.
+
+### 1.0.4
+
+Migration: [20261029000000_v1_0_4_bills.sql](supabase/migrations/20261029000000_v1_0_4_bills.sql). Set the new env vars in Vercel first: `NEXT_PUBLIC_VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` and `SUPABASE_SERVICE_ROLE_KEY` (see [.env.example](.env.example)).
+
+- Monthly bills: a new Bills page (in the sidebar) for rent, load, subscriptions and installments, with a due day and an optional last month.
+- Bills are reminders, not money: on or after the due date, confirm it as paid (logs the expense) or skip that month.
+- Dashboard: an Upcoming bills card, an "After bills" figure under the available balance, and "Safe to spend" leaves room for unpaid bills.
+- Bill reminders: turn on notifications in Settings to get one when a bill is due. The daily cron moved from `/api/keep-alive` to `/api/daily`.
+- Budget card on the dashboard has an Edit budget button (phones had no way back to the Budget page once a total limit was set).
+- Quick add presets wrap onto up to three rows instead of scrolling sideways, with a + button to make a new preset right there.
+
 ### 1.0.3
 
 Migration: [20261028000000_v1_0_3_settle_up.sql](supabase/migrations/20261028000000_v1_0_3_settle_up.sql). Also paste the email templates in [supabase/templates/](supabase/templates/) into Supabase (see [docs/launch.md](docs/launch.md)).

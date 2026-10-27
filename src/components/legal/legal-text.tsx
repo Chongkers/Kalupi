@@ -30,8 +30,8 @@ export function TermsText() {
 
       <Section title="What Kalupi is">
         <p>
-          Kalupi is a free app for tracking your own money: accounts, spending, budgets, savings goals and who owes
-          whom. It&apos;s a test version run by one person for friends, not a company.
+          Kalupi is a free app for tracking your own money: accounts, spending, budgets, bills, savings goals and who
+          owes whom. It&apos;s a test version run by one person for friends, not a company.
         </p>
       </Section>
 
@@ -40,6 +40,7 @@ export function TermsText() {
           <li>Kalupi never moves real money. Every amount is something you typed in or scanned.</li>
           <li>Balances and budgets are only as accurate as what you enter. Check important numbers yourself.</li>
           <li>Nothing in Kalupi is financial, tax or legal advice.</li>
+          <li>Bill reminders are a convenience. They can arrive late or not at all, so don&apos;t rely on them to pay on time.</li>
         </List>
       </Section>
 
@@ -96,8 +97,12 @@ export function PrivacyText() {
           <li>Your email, display name and password (stored scrambled; nobody can read it).</li>
           <li>Your profile picture, if you add one.</li>
           <li>
-            What you enter: accounts, transactions, categories, budgets, presets, trackers, and the names and amounts on
-            settle-up trackers.
+            What you enter: accounts, transactions, categories, budgets, bills, presets, trackers, and the names and
+            amounts on settle-up trackers.
+          </li>
+          <li>
+            If you turn on bill reminders: a notification address for that phone or browser, created by its maker. It
+            can&apos;t be used to read anything else on your device, and turning reminders off or logging out deletes it.
           </li>
           <li>The date you agreed to these terms.</li>
         </List>
@@ -121,6 +126,10 @@ export function PrivacyText() {
             the entries behind it.
           </li>
           <li>
+            Each morning a job on Kalupi&apos;s server checks everyone&apos;s bills to see whose are due, so it can send
+            reminders. It only reads the bills and sends notifications.
+          </li>
+          <li>
             The person who runs Kalupi can see the database while maintaining it, and only looks when needed to fix a
             problem or handle a request from you.
           </li>
@@ -133,6 +142,11 @@ export function PrivacyText() {
           <li>Vercel hosts the app.</li>
           <li>Google (Gmail) sends account emails such as password resets.</li>
           <li>
+            Bill reminders pass through your browser&apos;s notification service (Google for Chrome and Android, Apple for
+            Safari and iPhone, Mozilla for Firefox). They&apos;re encrypted, so that service can&apos;t read them. They show
+            the bill&apos;s name and amount, including on your lock screen.
+          </li>
+          <li>
             A copy of your data is kept on each device you use, so the app works offline. Logging out deletes it from
             that device.
           </li>
@@ -142,7 +156,7 @@ export function PrivacyText() {
       <Section title="Deleting your data">
         <p>
           Go to Settings → Delete account to send a request, or email <Email />. Your account and everything in it
-          (entries, budgets, trackers you made, your picture) is deleted, usually within 7 days. On shared trackers,
+          (entries, budgets, bills, trackers you made, your picture) is deleted, usually within 7 days. On shared trackers,
           your contributions are removed too, so the tracker&apos;s total goes down for the other members.
         </p>
       </Section>

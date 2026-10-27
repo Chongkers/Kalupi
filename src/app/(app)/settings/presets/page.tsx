@@ -5,10 +5,12 @@ import { Archive, ArchiveRestore, Pencil, Plus, Zap } from "lucide-react";
 import { PageHeader } from "@/components/page-header";
 import { PresetForm } from "@/components/finance/preset-form";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { PresetRow } from "@/lib/local/db";
+import { PRESET_ORDERS } from "@/lib/finance/presets";
+import { setMeta, type PresetRow } from "@/lib/local/db";
 import { useOverview, useTrackers } from "@/lib/local/hooks";
 import { setPresetArchived } from "@/lib/local/mutations";
 import { formatPeso } from "@/lib/money";
@@ -52,6 +54,7 @@ export default function PresetsPage() {
     ...overview.accounts.map((a) => [a.id, a.name] as const),
   ]);
   const activeTrackers = trackers.trackers.filter((t) => !t.archived && t.kind === "goal");
+  // overview.presets is already in the picked order; archived ones go last
   const sorted = [...overview.presets].sort((a, b) => Number(!!a.archived_at) - Number(!!b.archived_at));
 
   return (
@@ -65,7 +68,24 @@ export default function PresetsPage() {
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle className="text-lg font-semibold">Your presets</CardTitle>
-          <CardDescription>They show up under Quick add on the dashboard.</CardDescription>
+          <CardDescription>They show up under Quick add on the dashboard, in this order.</CardDescription>
+          {overview.presets.length > 1 && (
+            <CardAction>
+              {/* Remembered on this device; the dashboard and Add entry follow it */}
+              <NativeSelect
+                size="sm"
+                value={overview.presetOrder}
+                onChange={(e) => void setMeta("presetOrder", e.target.value)}
+                aria-label="Order presets by"
+              >
+                {Object.entries(PRESET_ORDERS).map(([value, label]) => (
+                  <NativeSelectOption key={value} value={value}>
+                    {label}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+            </CardAction>
+          )}
         </CardHeader>
         <CardContent>
           {sorted.length === 0 ? (

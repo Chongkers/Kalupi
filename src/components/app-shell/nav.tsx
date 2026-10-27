@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { CalendarDays, ChartPie, Goal, House, List, PhilippinePeso, ReceiptText, SlidersHorizontal } from "lucide-react";
+import { AddEntryLink } from "@/components/finance/add-entry";
 import { cn } from "@/lib/utils";
 
 const sidebarItems = [
@@ -100,8 +101,7 @@ function BottomLinks({ isActive }: { isActive: IsActive }) {
         {/* Bell-shaped add button: the same height as the bar, flaring out at the bottom and
             running down through the safe area to the very bottom of the screen */}
         <div className="relative flex-1 self-stretch">
-          <Link
-            href="/add"
+          <AddEntryLink
             aria-label="Add entry"
             className="group absolute bottom-[calc(-1*env(safe-area-inset-bottom))] left-1/2 flex w-30 -translate-x-1/2 flex-col text-primary-foreground drop-shadow-md transition-transform active:scale-95"
           >
@@ -111,7 +111,7 @@ function BottomLinks({ isActive }: { isActive: IsActive }) {
             {/* Fills the safe area under the bell on phones with a home indicator */}
             <span className="h-[env(safe-area-inset-bottom)] w-full bg-primary" />
             <PhilippinePeso className="absolute top-4 left-1/2 size-6 -translate-x-1/2" />
-          </Link>
+          </AddEntryLink>
         </div>
         {right.map(tab)}
       </div>

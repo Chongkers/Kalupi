@@ -50,6 +50,8 @@ export type TransactionFormProps = {
   scannedAmount?: number | null;
   /** Saved entries to fill the form in one tap (new entries only) */
   presets?: PresetRow[];
+  /** Called after saving instead of going to Transactions (the Add entry modal) */
+  onSaved?: () => void;
 };
 
 export function TransactionForm({
@@ -61,6 +63,7 @@ export function TransactionForm({
   initial,
   scannedAmount,
   presets = [],
+  onSaved,
 }: TransactionFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -107,6 +110,7 @@ export function TransactionForm({
         source: scannedAmount ? "scan" : presetId ? "preset" : "manual",
       });
       if (result.error) setSaveError(result.error);
+      else if (onSaved) onSaved();
       else router.push("/transactions");
     });
   }

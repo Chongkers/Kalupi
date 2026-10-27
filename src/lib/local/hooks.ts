@@ -5,6 +5,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { monthEnd, monthStart, today, type DateString } from "@/lib/dates";
 import { accountBalances, availableBalance } from "@/lib/finance/balances";
 import { billsDue } from "@/lib/finance/bills";
+import { DEFAULT_PRESET_ORDER, isPresetOrder, orderPresets } from "@/lib/finance/presets";
 import { summarizeBudget } from "@/lib/finance/budget";
 import { owedTotals, personBalances, spendingView, splitEntries } from "@/lib/finance/splits";
 import { trackerMembers, type ProgressRow } from "@/lib/finance/trackers";
@@ -23,7 +24,7 @@ export function useOverview() {
   return useLiveQuery(async () => {
     const now = today();
     const month = monthStart(now);
-    const [accountRows, categoryRows, transactionRows, budgets, presetRows, shareRows, billRows, billPaymentRows] = await Promise.all([
+    const [accountRows, categoryRows, transactionRows, budgets, presetRows, shareRows, billRows, billPaymentRows, savedOrder] = await Promise.all([
       db.accounts.toArray(),
       db.categories.toArray(),
       db.transactions.toArray(),
@@ -32,6 +33,7 @@ export function useOverview() {
       db.split_shares.toArray(),
       db.bills.toArray(),
       db.bill_payments.toArray(),
+      getMeta("presetOrder"),
     ]);
 
     const accounts: Account[] = live(accountRows).sort((a, b) => a.created_at.localeCompare(b.created_at));
@@ -39,6 +41,8 @@ export function useOverview() {
     const transactions: Transaction[] = live(transactionRows).sort(
       (a, b) => a.occurred_on.localeCompare(b.occurred_on) || a.created_at.localeCompare(b.created_at),
     );
+
+    const presetOrder = isPresetOrder(savedOrder) ? savedOrder : DEFAULT_PRESET_ORDER;
 
     const monthBudgetRow = budgets.find((b) => b.month === month && !b.deleted_at);
     const items = monthBudgetRow ? live(await db.budget_items.where("budget_id").equals(monthBudgetRow.id).toArray()) : [];
@@ -66,7 +70,9 @@ export function useOverview() {
       available: availableBalance(transactions),
       monthBudget,
       budget: monthBudget ? summarizeBudget(monthBudget.items, categories, monthSpending, monthBudget.totalLimit) : null,
-      presets: live(presetRows).sort((a, b) => a.name.localeCompare(b.name)),
+      /** Picked in Settings → Presets; remembered on this device */
+      presetOrder,
+      presets: orderPresets(live(presetRows), presetOrder, transactions),
       /** Every bill, ended ones included (v1.0.4) */
       bills: live(billRows).sort((a, b) => a.due_day - b.due_day || a.name.localeCompare(b.name)),
       /** This month's bills (and last month's unconfirmed ones) with their status */

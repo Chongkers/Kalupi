@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useTransition } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Plus, TriangleAlert, Zap } from "lucide-react";
@@ -13,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { guardrailWarnings } from "@/lib/finance/guardrail";
-import { getMeta, setMeta, type PresetRow } from "@/lib/local/db";
+import type { PresetRow } from "@/lib/local/db";
 import { useTrackers, type Overview } from "@/lib/local/hooks";
 import { logPreset } from "@/lib/local/mutations";
 import { formatPeso, parsePeso, toInputValue } from "@/lib/money";
@@ -112,26 +111,6 @@ function LogPreset({ preset, overview, onDone }: { preset: PresetRow; overview: 
 
 const MAX_ROWS = 3;
 
-const ORDERS = {
-  latest: "Latest added",
-  frequent: "Most frequent",
-  first: "First added",
-} as const;
-type Order = keyof typeof ORDERS;
-
-/** Presets in the order picked on the dashboard. "Most frequent" counts entries logged from each one. */
-function orderPresets(presets: PresetRow[], order: Order, transactions: Overview["transactions"]) {
-  const byAge = [...presets].sort((a, b) => a.created_at.localeCompare(b.created_at));
-  if (order === "first") return byAge;
-  if (order === "latest") return byAge.reverse();
-  // Logging a preset saves its name as the entry's note (logPreset); ties go to the newest
-  const uses = new Map<string, number>();
-  for (const t of transactions) {
-    if (t.source === "preset" && t.note) uses.set(t.note, (uses.get(t.note) ?? 0) + 1);
-  }
-  return byAge.reverse().sort((a, b) => (uses.get(b.name) ?? 0) - (uses.get(a.name) ?? 0));
-}
-
 /** The new-preset sheet behind the + button; trackers load only when it opens. */
 function NewPreset({ overview, onDone }: { overview: Overview; onDone: () => void }) {
   const trackers = useTrackers();
@@ -150,13 +129,8 @@ function NewPreset({ overview, onDone }: { overview: Overview; onDone: () => voi
 export function QuickAdd({ overview }: { overview: Overview }) {
   const [open, setOpen] = useState<PresetRow | null>(null);
   const [adding, setAdding] = useState(false);
-  // Remembered on this device
-  const order = useLiveQuery(async () => (await getMeta<Order>("presetOrder")) ?? "frequent", [], "frequent");
-  const presets = orderPresets(
-    overview.presets.filter((p) => !p.archived_at),
-    order,
-    overview.transactions,
-  );
+  // In the order picked in Settings → Presets
+  const presets = overview.presets.filter((p) => !p.archived_at);
   const categoryById = new Map(overview.categories.map((c) => [c.id, c]));
 
   // How many chips fit in MAX_ROWS rows with the + after them, measured before paint
@@ -197,23 +171,9 @@ export function QuickAdd({ overview }: { overview: Overview }) {
             <Zap className="size-3.5 text-primary" /> Quick add
           </span>
           {presets.length > 0 && (
-            <span className="flex items-center gap-3">
-              <NativeSelect
-                size="sm"
-                value={order}
-                onChange={(e) => void setMeta("presetOrder", e.target.value)}
-                aria-label="Order presets by"
-              >
-                {Object.entries(ORDERS).map(([value, label]) => (
-                  <NativeSelectOption key={value} value={value}>
-                    {label}
-                  </NativeSelectOption>
-                ))}
-              </NativeSelect>
-              <Link href="/settings/presets" className="text-sm font-medium whitespace-nowrap text-primary underline underline-offset-4">
-                {hidden > 0 ? `All ${presets.length}` : "Edit"}
-              </Link>
-            </span>
+            <Link href="/settings/presets" className="text-sm font-medium whitespace-nowrap text-primary underline underline-offset-4">
+              {hidden > 0 ? `All ${presets.length}` : "Edit"}
+            </Link>
           )}
         </div>
 

@@ -1,12 +1,12 @@
 // Terms, Privacy Policy and account deletion requests (v1.0.3)
 
 /** Shown in the Terms and Privacy Policy, and where "Delete my account" requests go. Public. */
-export const CONTACT_EMAIL = "CHANGE-ME@example.com";
+export const CONTACT_EMAIL = "lawrenceabentajadogiron@gmail.com";
 
 /** When the Terms and Privacy Policy last changed. Bump both when editing src/components/legal/legal-text.tsx. */
-export const LEGAL_UPDATED = "October 26, 2026";
+export const LEGAL_UPDATED = "October 27, 2026";
 /** Saved on the account at sign-up (user metadata terms_version), so we know which version they agreed to */
-export const LEGAL_VERSION = "2026-10-26";
+export const LEGAL_VERSION = "2026-10-27";
 
 /** Opens the user's mail app with the deletion request filled in */
 export function deleteAccountMailto(accountEmail: string) {
